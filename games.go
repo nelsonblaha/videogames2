@@ -177,7 +177,7 @@ func NewFirstToFind() *FirstToFind {
 
 func (f *FirstToFind) GetName() string { return "First to Find" }
 func (f *FirstToFind) GetInstructions() string {
-	return "The first person to find the object and show it on screen wins"
+	return "First to show a " + f.item + " wins!"
 }
 func (f *FirstToFind) GetID() string     { return "firsttofind" }
 func (f *FirstToFind) NeedsInput() bool  { return false }
@@ -271,7 +271,7 @@ func NewBlankestBlank() *BlankestBlank {
 
 func (b *BlankestBlank) GetName() string { return "Find the Blankest Blank" }
 func (b *BlankestBlank) GetInstructions() string {
-	return "The person who finds the " + b.adjective + " " + b.noun + " and shows it on screen wins"
+	return "Find the " + b.adjective + " " + b.noun + "!"
 }
 func (b *BlankestBlank) GetID() string     { return "blankestblank" }
 func (b *BlankestBlank) NeedsInput() bool  { return false }
