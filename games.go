@@ -60,15 +60,23 @@ func RandomGameType() string {
 	return AllGames[rand.Intn(len(AllGames))]
 }
 
+// MinPlayersRequired returns the minimum number of players required for a game
+func MinPlayersRequired(gameType string) int {
+	switch gameType {
+	case "imitations":
+		return 2 // Needs 1 actor + at least 1 guesser
+	default:
+		return 1 // Most games work with 1 player
+	}
+}
+
 // RandomGameTypeForPlayers returns a random game type appropriate for the player count
 func RandomGameTypeForPlayers(playerCount int) string {
 	validGames := []string{}
 	for _, game := range AllGames {
-		// Imitations requires at least 2 players (1 actor + 1 guesser)
-		if game == "imitations" && playerCount < 2 {
-			continue
+		if MinPlayersRequired(game) <= playerCount {
+			validGames = append(validGames, game)
 		}
-		validGames = append(validGames, game)
 	}
 
 	if len(validGames) == 0 {
