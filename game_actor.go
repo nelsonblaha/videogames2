@@ -388,18 +388,27 @@ func (ga *GameActor) broadcastState() {
 			// For BlankestBlank, use the prompt as the title instead of the generic game name
 			if ga.currentGame == "blankestblank" {
 				gameTitle = tempGame.GetPrompt()
+				gameInstructions = tempGame.GetInstructions()
+				// BlankestBlank instructions already say "Click next when everyone has their [item]"
+				// so we don't need redundant round instructions
+				roundInstructions = ""
 			} else {
 				gameTitle = tempGame.GetName()
+				gameInstructions = tempGame.GetInstructions()
+				if numPlayers == 1 {
+					roundInstructions = "Click 'Next' when ready to play"
+				} else {
+					roundInstructions = "Everyone click 'Next' when ready"
+				}
 			}
-			gameInstructions = tempGame.GetInstructions()
 		} else {
 			gameTitle = "Get Ready!"
 			gameInstructions = "Prepare for the next game"
-		}
-		if numPlayers == 1 {
-			roundInstructions = "Click 'Next' when ready to play"
-		} else {
-			roundInstructions = "Everyone click 'Next' when ready"
+			if numPlayers == 1 {
+				roundInstructions = "Click 'Next' when ready to play"
+			} else {
+				roundInstructions = "Everyone click 'Next' when ready"
+			}
 		}
 
 	case "playing":
