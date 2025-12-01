@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"math/rand"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -149,6 +150,17 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 				cg.numPlayers = len(ga.players)
 			}
 
+			// Set random actor for Imitations
+			if im, ok := ga.game.(*Imitations); ok && len(ga.players) > 0 {
+				// Pick random player as actor
+				playerIDs := make([]string, 0, len(ga.players))
+				for id := range ga.players {
+					playerIDs = append(playerIDs, id)
+				}
+				actorID := playerIDs[rand.Intn(len(playerIDs))]
+				im.SetActor(actorID)
+			}
+
 			// Reset ready status
 			for _, p := range ga.players {
 				p.Ready = false
@@ -184,10 +196,21 @@ func (ga *GameActor) handleSubmitWord(msg SubmitWordMsg) {
 	// Submit word/answer to current game
 	isComplete := ga.game.SubmitAnswer(msg.PlayerID, msg.Word)
 
-	// Award point to player (but not for timer_complete or video_complete signals)
+	// Award points based on game type
 	if msg.Word != "timer_complete" && msg.Word != "video_complete" {
-		if player, exists := ga.players[msg.PlayerID]; exists {
-			player.Score++
+		// For Imitations, only award points to the winner
+		if im, ok := ga.game.(*Imitations); ok {
+			if isComplete && im.GetWinner() == msg.PlayerID {
+				if player, exists := ga.players[msg.PlayerID]; exists {
+					player.Score += 3 // Award 3 points for guessing correctly
+					im.SetWinnerName(player.Name)
+				}
+			}
+		} else {
+			// For other games, award 1 point per submission
+			if player, exists := ga.players[msg.PlayerID]; exists {
+				player.Score++
+			}
 		}
 	}
 
@@ -451,11 +474,43 @@ func (ga *GameActor) broadcastState() {
 		return
 	}
 
-	// Send to all players
+	// Send to all players (personalized for Imitations)
 	for _, player := range ga.players {
 		player.mu.Lock()
 		if player.Conn != nil {
-			err := player.Conn.WriteMessage(websocket.TextMessage, jsonData)
+			// Personalize message for Imitations game
+			playerStateMsg := stateMsg
+			if ga.state == "playing" && ga.currentGame == "imitations" {
+				if im, ok := ga.game.(*Imitations); ok {
+					playerStateData := make(map[string]interface{})
+					for k, v := range stateData {
+						playerStateData[k] = v
+					}
+
+					// Actor gets told who to imitate
+					if player.ID == im.GetActor() {
+						playerStateData["game_instructions"] = "You are the actor!"
+						playerStateData["round_instructions"] = "Imitate " + im.GetPerson() + " without saying their name!"
+					} else {
+						// Guessers get the normal prompt
+						playerStateData["game_instructions"] = "Enter your answer:"
+						playerStateData["round_instructions"] = "Guess who's being imitated!"
+					}
+
+					playerStateMsg = map[string]interface{}{
+						"state": playerStateData,
+					}
+				}
+			}
+
+			playerJsonData, err := json.Marshal(playerStateMsg)
+			if err != nil {
+				log.Printf("Error marshaling player state: %v", err)
+				player.mu.Unlock()
+				continue
+			}
+
+			err = player.Conn.WriteMessage(websocket.TextMessage, playerJsonData)
 			if err != nil {
 				log.Printf("Error sending to player %s: %v", player.ID, err)
 			}

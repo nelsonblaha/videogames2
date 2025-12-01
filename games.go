@@ -207,8 +207,12 @@ func (f *FirstToFind) DecrementTimer() {
 
 // Imitations
 type Imitations struct {
-	person  string
-	guessed bool
+	person      string
+	actorID     string
+	guessed     bool
+	winnerID    string
+	winnerName  string
+	submissions map[string]string // Track all guesses
 }
 
 var peopleToImitate = []string{
@@ -218,25 +222,185 @@ var peopleToImitate = []string{
 
 func NewImitations() *Imitations {
 	return &Imitations{
-		person:  peopleToImitate[rand.Intn(len(peopleToImitate))],
-		guessed: false,
+		person:      peopleToImitate[rand.Intn(len(peopleToImitate))],
+		guessed:     false,
+		submissions: make(map[string]string),
 	}
+}
+
+func (i *Imitations) SetActor(actorID string) {
+	i.actorID = actorID
+}
+
+func (i *Imitations) GetActor() string {
+	return i.actorID
+}
+
+func (i *Imitations) GetPerson() string {
+	return i.person
 }
 
 func (i *Imitations) GetName() string { return "Imitations" }
 func (i *Imitations) GetInstructions() string {
 	return "Imitate the person without saying their name!"
 }
-func (i *Imitations) GetID() string     { return "imitations" }
-func (i *Imitations) NeedsInput() bool  { return true }
-func (i *Imitations) GetPrompt() string { return "Guess who's being imitated!" }
-func (i *Imitations) SubmitAnswer(playerID, answer string) bool {
-	i.guessed = true
-	return true
+func (i *Imitations) GetID() string    { return "imitations" }
+func (i *Imitations) NeedsInput() bool { return true }
+func (i *Imitations) GetPrompt() string {
+	return "Guess who's being imitated!"
 }
+
+// Fuzzy match helper - checks if guess is close to target
+func fuzzyMatch(guess, target string) bool {
+	// Normalize both strings
+	g := normalizeString(guess)
+	t := normalizeString(target)
+
+	// Exact match
+	if g == t {
+		return true
+	}
+
+	// Split target into words (first name, last name, etc)
+	words := []string{}
+	currentWord := ""
+	for _, c := range t {
+		if c == ' ' {
+			if currentWord != "" {
+				words = append(words, currentWord)
+				currentWord = ""
+			}
+		} else {
+			currentWord += string(c)
+		}
+	}
+	if currentWord != "" {
+		words = append(words, currentWord)
+	}
+
+	// Check if guess matches any individual word (first or last name)
+	for _, word := range words {
+		if g == word {
+			return true
+		}
+	}
+
+	// Check if target contains guess or vice versa
+	if len(g) >= 3 && (contains(t, g) || contains(g, t)) {
+		return true
+	}
+
+	// Simple Levenshtein distance for typos (allow 1-2 character differences)
+	if len(g) > 3 && len(t) > 3 && levenshteinDistance(g, t) <= 2 {
+		return true
+	}
+
+	return false
+}
+
+func normalizeString(s string) string {
+	result := ""
+	for _, c := range s {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+			if c >= 'A' && c <= 'Z' {
+				result += string(c + 32) // lowercase
+			} else {
+				result += string(c)
+			}
+		}
+	}
+	return result
+}
+
+func contains(haystack, needle string) bool {
+	if len(needle) > len(haystack) {
+		return false
+	}
+	for i := 0; i <= len(haystack)-len(needle); i++ {
+		match := true
+		for j := 0; j < len(needle); j++ {
+			if haystack[i+j] != needle[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}
+
+func levenshteinDistance(s1, s2 string) int {
+	if len(s1) == 0 {
+		return len(s2)
+	}
+	if len(s2) == 0 {
+		return len(s1)
+	}
+
+	matrix := make([][]int, len(s1)+1)
+	for i := range matrix {
+		matrix[i] = make([]int, len(s2)+1)
+		matrix[i][0] = i
+	}
+	for j := range matrix[0] {
+		matrix[0][j] = j
+	}
+
+	for i := 1; i <= len(s1); i++ {
+		for j := 1; j <= len(s2); j++ {
+			cost := 1
+			if s1[i-1] == s2[j-1] {
+				cost = 0
+			}
+
+			min := matrix[i-1][j] + 1 // deletion
+			if matrix[i][j-1]+1 < min {
+				min = matrix[i][j-1] + 1 // insertion
+			}
+			if matrix[i-1][j-1]+cost < min {
+				min = matrix[i-1][j-1] + cost // substitution
+			}
+
+			matrix[i][j] = min
+		}
+	}
+
+	return matrix[len(s1)][len(s2)]
+}
+
+func (i *Imitations) SubmitAnswer(playerID, answer string) bool {
+	// Don't allow the actor to guess
+	if playerID == i.actorID {
+		return false
+	}
+
+	// Store the guess
+	i.submissions[playerID] = answer
+
+	// Check if answer is correct using fuzzy matching
+	if fuzzyMatch(answer, i.person) {
+		i.guessed = true
+		i.winnerID = playerID
+		return true
+	}
+
+	return false
+}
+
 func (i *Imitations) IsComplete() bool { return i.guessed }
 func (i *Imitations) GetResult() string {
+	if i.winnerName != "" {
+		return i.winnerName + " guessed it! The person was: " + i.person
+	}
 	return "The person was: " + i.person
+}
+func (i *Imitations) GetWinner() string {
+	return i.winnerID
+}
+func (i *Imitations) SetWinnerName(name string) {
+	i.winnerName = name
 }
 func (i *Imitations) HasTimer() bool        { return false }
 func (i *Imitations) GetTimeRemaining() int { return 0 }
