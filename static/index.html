@@ -436,6 +436,13 @@
             const nextButton = document.getElementById('next-button');
             const progressText = document.getElementById('progress-text');
 
+            // Update button text based on game state
+            if (state.game_state === 'instructions' || state.game_state === 'lobby') {
+                nextButton.textContent = 'Start';
+            } else {
+                nextButton.textContent = 'Next Game';
+            }
+
             // Handle YouTube video for You Laugh You Lose
             if (state.game_type === 'youlaughyoulose' && state.game_state === 'playing' && state.youtube_video_id) {
                 playYouTubeVideo(state.youtube_video_id);
