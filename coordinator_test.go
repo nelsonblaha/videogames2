@@ -70,7 +70,7 @@ func TestCoordinatorRemoveEmptyGames(t *testing.T) {
 
 	// Create games
 	game1 := gc.GetOrCreateGame("game1")
-	game2 := gc.GetOrCreateGame("game2")
+	_ = gc.GetOrCreateGame("game2") // game2 checked via GetGame later
 
 	// Add player to game1
 	game1.Send(PlayerJoinMsg{
