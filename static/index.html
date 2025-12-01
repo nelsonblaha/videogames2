@@ -70,6 +70,13 @@
             border-radius: 10px;
             margin: 10px 0;
         }
+        #timer-display {
+            font-size: 48px;
+            font-weight: bold;
+            color: #ff5722;
+            text-align: center;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
@@ -106,6 +113,10 @@
                         <div id="story-text"></div>
                     </div>
 
+                    <div id="timer-area" class="hidden">
+                        <div id="timer-display">30</div>
+                    </div>
+
                     <div id="voting-area" class="hidden">
                         <p>Who kept the straightest face?</p>
                         <select id="vote-select">
@@ -131,6 +142,8 @@
         let jitsiApi = null;
         let youtubePlayer = null;
         let currentPlayerID = '';
+        let timerInterval = null;
+        let currentTimeRemaining = 0;
 
         // Check if user is authenticated via homepage
         fetch('/api/user')
@@ -327,6 +340,35 @@
             }
         });
 
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function startTimer(initialSeconds) {
+            stopTimer();
+            currentTimeRemaining = initialSeconds;
+            document.getElementById('timer-display').textContent = currentTimeRemaining;
+
+            timerInterval = setInterval(() => {
+                currentTimeRemaining--;
+                document.getElementById('timer-display').textContent = currentTimeRemaining;
+
+                if (currentTimeRemaining <= 0) {
+                    stopTimer();
+                    // Send timer_complete signal
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            action: 'submit-word',
+                            data: { word: 'timer_complete' }
+                        }));
+                    }
+                }
+            }, 1000);
+        }
+
         function updateGameState(state) {
             document.getElementById('game-title').textContent = state.game_title || 'Video Games';
             document.getElementById('game-instructions').textContent = state.game_instructions || '';
@@ -335,6 +377,7 @@
             const wordInputArea = document.getElementById('word-input-area');
             const storyDisplay = document.getElementById('story-display');
             const votingArea = document.getElementById('voting-area');
+            const timerArea = document.getElementById('timer-area');
             const nextButton = document.getElementById('next-button');
             const progressText = document.getElementById('progress-text');
 
@@ -349,7 +392,19 @@
                 wordInputArea.classList.add('hidden');
                 storyDisplay.classList.add('hidden');
                 votingArea.classList.add('hidden');
+                timerArea.classList.add('hidden');
                 nextButton.classList.add('hidden');
+
+                // Handle timer for timed games
+                if (state.has_timer && state.time_remaining !== undefined) {
+                    timerArea.classList.remove('hidden');
+                    // Start timer if not already running or if time changed
+                    if (currentTimeRemaining !== state.time_remaining) {
+                        startTimer(state.time_remaining);
+                    }
+                } else {
+                    stopTimer();
+                }
 
                 // Show word input only for games that need it (not You Laugh You Lose)
                 if (state.needs_input && state.game_type !== 'youlaughyoulose') {
@@ -362,6 +417,8 @@
                     }, 100);
                 }
             } else if (state.game_state === 'voting') {
+                stopTimer();
+                timerArea.classList.add('hidden');
                 wordInputArea.classList.add('hidden');
                 storyDisplay.classList.add('hidden');
                 votingArea.classList.remove('hidden');
@@ -386,8 +443,10 @@
                         `Votes: ${state.total_votes} / ${state.expected_votes}`;
                 }
             } else if (state.game_state === 'finished') {
+                stopTimer();
                 wordInputArea.classList.add('hidden');
                 votingArea.classList.add('hidden');
+                timerArea.classList.add('hidden');
                 storyDisplay.classList.remove('hidden');
                 nextButton.classList.remove('hidden');
 
@@ -395,9 +454,11 @@
                     document.getElementById('story-text').textContent = state.story;
                 }
             } else {
+                stopTimer();
                 wordInputArea.classList.add('hidden');
                 storyDisplay.classList.add('hidden');
                 votingArea.classList.add('hidden');
+                timerArea.classList.add('hidden');
                 nextButton.classList.remove('hidden');
             }
 

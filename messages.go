@@ -50,6 +50,10 @@ type VoteMsg struct {
 
 func (m VoteMsg) ActorMessage() {}
 
+type TimerTickMsg struct{}
+
+func (m TimerTickMsg) ActorMessage() {}
+
 // Game state broadcast message
 type BroadcastStateMsg struct{}
 

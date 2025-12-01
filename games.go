@@ -19,6 +19,9 @@ type GameType interface {
 	SubmitAnswer(playerID, answer string) bool
 	IsComplete() bool
 	GetResult() string
+	HasTimer() bool
+	GetTimeRemaining() int
+	DecrementTimer()
 }
 
 // Game registry
@@ -91,6 +94,9 @@ func (c *Charades) IsComplete() bool { return c.guessed }
 func (c *Charades) GetResult() string {
 	return "The topic was: " + c.topic
 }
+func (c *Charades) HasTimer() bool           { return false }
+func (c *Charades) GetTimeRemaining() int    { return 0 }
+func (c *Charades) DecrementTimer()          {}
 
 // Claude's Game
 type ClaudesGame struct {
@@ -134,35 +140,64 @@ func (c *ClaudesGame) GetResult() string {
 	}
 	return result
 }
+func (c *ClaudesGame) HasTimer() bool        { return false }
+func (c *ClaudesGame) GetTimeRemaining() int { return 0 }
+func (c *ClaudesGame) DecrementTimer()       {}
 
 // First to Find
 type FirstToFind struct {
-	item  string
-	found bool
+	item          string
+	timeRemaining int
+	timerActive   bool
 }
 
 var itemsToFind = []string{
-	"banana", "pen", "musical instrument", "ice cube",
-	"compact disc", "something green", "a hat", "a book",
+	"banana",
+	"working electrical device over 50 years old",
+	"blade of grass",
+	"pen",
+	"musical instrument",
+	"ice cube",
+	"compact disc",
 }
 
 func NewFirstToFind() *FirstToFind {
 	return &FirstToFind{
-		item:  itemsToFind[rand.Intn(len(itemsToFind))],
-		found: false,
+		item:          itemsToFind[rand.Intn(len(itemsToFind))],
+		timeRemaining: 30,
+		timerActive:   true,
 	}
 }
 
 func (f *FirstToFind) GetName() string { return "First to Find" }
 func (f *FirstToFind) GetInstructions() string {
-	return "First to find and show the item on camera wins!"
+	return "The first person to find the object and show it on screen wins"
 }
-func (f *FirstToFind) GetID() string          { return "firsttofind" }
-func (f *FirstToFind) NeedsInput() bool       { return false }
-func (f *FirstToFind) GetPrompt() string      { return "Find: " + f.item }
-func (f *FirstToFind) SubmitAnswer(string, string) bool { f.found = true; return true }
-func (f *FirstToFind) IsComplete() bool       { return f.found }
-func (f *FirstToFind) GetResult() string      { return "Item found: " + f.item }
+func (f *FirstToFind) GetID() string     { return "firsttofind" }
+func (f *FirstToFind) NeedsInput() bool  { return false }
+func (f *FirstToFind) GetPrompt() string { return "First to show a " + f.item + " wins!" }
+func (f *FirstToFind) SubmitAnswer(playerID, answer string) bool {
+	// Timer completion triggers voting
+	if answer == "timer_complete" {
+		f.timerActive = false
+		return true
+	}
+	return false
+}
+func (f *FirstToFind) IsComplete() bool  { return !f.timerActive }
+func (f *FirstToFind) GetResult() string { return "Time's up! Vote for who showed the best " + f.item }
+func (f *FirstToFind) HasTimer() bool    { return true }
+func (f *FirstToFind) GetTimeRemaining() int {
+	return f.timeRemaining
+}
+func (f *FirstToFind) DecrementTimer() {
+	if f.timeRemaining > 0 {
+		f.timeRemaining--
+	}
+	if f.timeRemaining == 0 {
+		f.timerActive = false
+	}
+}
 
 // Imitations
 type Imitations struct {
@@ -197,45 +232,68 @@ func (i *Imitations) IsComplete() bool { return i.guessed }
 func (i *Imitations) GetResult() string {
 	return "The person was: " + i.person
 }
+func (i *Imitations) HasTimer() bool        { return false }
+func (i *Imitations) GetTimeRemaining() int { return 0 }
+func (i *Imitations) DecrementTimer()       {}
 
 // Find the Blankest Blank
 type BlankestBlank struct {
-	adjective string
-	noun      string
-	found     bool
+	adjective     string
+	noun          string
+	timeRemaining int
+	timerActive   bool
 }
 
 var adjectives = []string{
 	"oldest", "biggest", "fanciest", "most bizarre",
-	"smallest", "newest", "trendiest", "weirdest", "pinkest",
+	"smallest", "newest", "trendiest", "weirdest", "pinkest", "best",
 }
 
 var nouns = []string{
 	"thing", "food", "kitchen utensil", "costume",
-	"coin", "book", "hat", "toy",
+	"coin", "book", "hat",
 }
 
 func NewBlankestBlank() *BlankestBlank {
 	return &BlankestBlank{
-		adjective: adjectives[rand.Intn(len(adjectives))],
-		noun:      nouns[rand.Intn(len(nouns))],
-		found:     false,
+		adjective:     adjectives[rand.Intn(len(adjectives))],
+		noun:          nouns[rand.Intn(len(nouns))],
+		timeRemaining: 30,
+		timerActive:   true,
 	}
 }
 
 func (b *BlankestBlank) GetName() string { return "Find the Blankest Blank" }
 func (b *BlankestBlank) GetInstructions() string {
-	return "Find the " + b.adjective + " " + b.noun + " and show it!"
+	return "The person who finds the " + b.adjective + " " + b.noun + " and shows it on screen wins"
 }
 func (b *BlankestBlank) GetID() string     { return "blankestblank" }
 func (b *BlankestBlank) NeedsInput() bool  { return false }
-func (b *BlankestBlank) GetPrompt() string { return "Find: " + b.adjective + " " + b.noun }
-func (b *BlankestBlank) SubmitAnswer(string, string) bool {
-	b.found = true
-	return true
+func (b *BlankestBlank) GetPrompt() string { return "Find the " + b.adjective + " " + b.noun + "!" }
+func (b *BlankestBlank) SubmitAnswer(playerID, answer string) bool {
+	// Timer completion triggers voting
+	if answer == "timer_complete" {
+		b.timerActive = false
+		return true
+	}
+	return false
 }
-func (b *BlankestBlank) IsComplete() bool  { return b.found }
-func (b *BlankestBlank) GetResult() string { return "Found the " + b.adjective + " " + b.noun }
+func (b *BlankestBlank) IsComplete() bool { return !b.timerActive }
+func (b *BlankestBlank) GetResult() string {
+	return "Time's up! Vote for who showed the " + b.adjective + " " + b.noun
+}
+func (b *BlankestBlank) HasTimer() bool { return true }
+func (b *BlankestBlank) GetTimeRemaining() int {
+	return b.timeRemaining
+}
+func (b *BlankestBlank) DecrementTimer() {
+	if b.timeRemaining > 0 {
+		b.timeRemaining--
+	}
+	if b.timeRemaining == 0 {
+		b.timerActive = false
+	}
+}
 
 // You Laugh You Lose
 type YouLaughYouLose struct {
@@ -261,9 +319,22 @@ func (y *YouLaughYouLose) GetName() string { return "You Laugh You Lose" }
 func (y *YouLaughYouLose) GetInstructions() string {
 	return "Last person to keep a straight face wins!"
 }
-func (y *YouLaughYouLose) GetID() string          { return "youlaughyoulose" }
-func (y *YouLaughYouLose) NeedsInput() bool       { return false }
-func (y *YouLaughYouLose) GetPrompt() string      { return "Watch and don't laugh!" }
-func (y *YouLaughYouLose) SubmitAnswer(string, string) bool { return false }
-func (y *YouLaughYouLose) IsComplete() bool       { return y.elapsed >= y.duration }
-func (y *YouLaughYouLose) GetResult() string      { return "Video ID: " + y.videoID }
+func (y *YouLaughYouLose) GetID() string    { return "youlaughyoulose" }
+func (y *YouLaughYouLose) NeedsInput() bool { return false }
+func (y *YouLaughYouLose) GetPrompt() string {
+	return "Watch and don't laugh!"
+}
+func (y *YouLaughYouLose) SubmitAnswer(playerID, answer string) bool {
+	// Video end triggers voting
+	if answer == "video_complete" {
+		return true
+	}
+	return false
+}
+func (y *YouLaughYouLose) IsComplete() bool  { return y.elapsed >= y.duration }
+func (y *YouLaughYouLose) GetResult() string { return "Who kept the straightest face?" }
+func (y *YouLaughYouLose) HasTimer() bool    { return false }
+func (y *YouLaughYouLose) GetTimeRemaining() int {
+	return 0
+}
+func (y *YouLaughYouLose) DecrementTimer() {}

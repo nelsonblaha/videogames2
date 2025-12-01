@@ -176,14 +176,20 @@ func (ga *GameActor) handleSubmitWord(msg SubmitWordMsg) {
 	// Submit word/answer to current game
 	isComplete := ga.game.SubmitAnswer(msg.PlayerID, msg.Word)
 
-	// Award point to player
-	if player, exists := ga.players[msg.PlayerID]; exists {
-		player.Score++
+	// Award point to player (but not for timer_complete or video_complete signals)
+	if msg.Word != "timer_complete" && msg.Word != "video_complete" {
+		if player, exists := ga.players[msg.PlayerID]; exists {
+			player.Score++
+		}
 	}
 
 	if isComplete {
-		// For "You Laugh You Lose", go to voting
-		if ga.currentGame == "youlaughyoulose" {
+		// Games that need voting: youlaughyoulose, firsttofind, blankestblank
+		needsVoting := ga.currentGame == "youlaughyoulose" ||
+			ga.currentGame == "firsttofind" ||
+			ga.currentGame == "blankestblank"
+
+		if needsVoting {
 			ga.state = "voting"
 			ga.votes = make(map[string]string)
 		} else {
@@ -343,8 +349,13 @@ func (ga *GameActor) broadcastState() {
 
 	case "voting":
 		gameTitle = "Time to Vote!"
-		gameInstructions = "Who kept the straightest face?"
-		roundInstructions = "Vote for the person who didn't laugh!"
+		if ga.game != nil {
+			gameInstructions = ga.game.GetResult()
+			roundInstructions = "Vote for the winner!"
+		} else {
+			gameInstructions = "Who kept the straightest face?"
+			roundInstructions = "Vote for the person who didn't laugh!"
+		}
 
 	case "finished":
 		gameTitle = "Game Complete!"
@@ -365,6 +376,12 @@ func (ga *GameActor) broadcastState() {
 		"game_state":         ga.state,
 		"game_type":          ga.currentGame,
 		"needs_input":        ga.game != nil && ga.game.NeedsInput(),
+	}
+
+	// Add timer data if game has a timer
+	if ga.state == "playing" && ga.game != nil && ga.game.HasTimer() {
+		stateData["has_timer"] = true
+		stateData["time_remaining"] = ga.game.GetTimeRemaining()
 	}
 
 	// Add YouTube video ID for You Laugh You Lose

@@ -105,4 +105,7 @@ func (m *MadLib) GetPrompt() string       { return m.CurrentPrompt() }
 func (m *MadLib) SubmitAnswer(playerID, answer string) bool {
 	return m.AddWord(answer)
 }
-func (m *MadLib) GetResult() string { return m.GetStory() }
+func (m *MadLib) GetResult() string       { return m.GetStory() }
+func (m *MadLib) HasTimer() bool          { return false }
+func (m *MadLib) GetTimeRemaining() int   { return 0 }
+func (m *MadLib) DecrementTimer()         {}
