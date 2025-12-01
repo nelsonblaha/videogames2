@@ -21,10 +21,19 @@
             height: 50vh;
             background: #000;
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         #jitsi-container {
             width: 100%;
             height: 100%;
+        }
+        #video-placeholder {
+            color: #666;
+            font-size: 18px;
+            text-align: center;
+            padding: 20px;
         }
         #game-pane {
             height: 50vh;
@@ -82,6 +91,7 @@
 <body>
     <div id="container">
         <div id="video-pane">
+            <div id="video-placeholder">Video chat will start when you join a game</div>
             <div id="jitsi-container"></div>
             <div id="youtube-container" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000;">
                 <div id="youtube-player"></div>
@@ -157,6 +167,12 @@
 
         function initJitsi(roomName, displayName) {
             console.log('Initializing Jitsi:', { roomName, displayName });
+
+            // Hide placeholder message
+            const placeholder = document.getElementById('video-placeholder');
+            if (placeholder) {
+                placeholder.classList.add('hidden');
+            }
 
             // Check if external_api.js loaded
             if (typeof JitsiMeetExternalAPI === 'undefined') {
