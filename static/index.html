@@ -62,6 +62,16 @@
                 <h2 id="game-instructions"></h2>
                 <p id="round-instructions"></p>
 
+                <div id="word-input-area" class="hidden">
+                    <input type="text" id="word-input" placeholder="Enter a word" />
+                    <button onclick="submitWord()">Submit</button>
+                    <p id="progress-text"></p>
+                </div>
+
+                <div id="story-display" class="hidden">
+                    <div id="story-text" style="font-size: 18px; line-height: 1.6; padding: 20px; background: #f9f9f9; border-radius: 10px;"></div>
+                </div>
+
                 <button id="next-button" onclick="nextGame()">Next</button>
 
                 <h3>Players</h3>
@@ -149,11 +159,75 @@
             }
         }
 
+        function submitWord() {
+            const wordInput = document.getElementById('word-input');
+            const word = wordInput.value.trim();
+
+            if (word && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    action: 'submit-word',
+                    data: { word: word }
+                }));
+                wordInput.value = '';
+                wordInput.focus();
+            }
+        }
+
+        // Allow enter key to submit
+        document.addEventListener('DOMContentLoaded', () => {
+            const wordInput = document.getElementById('word-input');
+            if (wordInput) {
+                wordInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        submitWord();
+                    }
+                });
+            }
+        });
+
         function updateGameState(state) {
             document.getElementById('game-title').textContent = state.game_title || 'Video Games';
             document.getElementById('game-instructions').textContent = state.game_instructions || '';
             document.getElementById('round-instructions').textContent = state.round_instructions || '';
 
+            const wordInputArea = document.getElementById('word-input-area');
+            const storyDisplay = document.getElementById('story-display');
+            const nextButton = document.getElementById('next-button');
+            const progressText = document.getElementById('progress-text');
+
+            // Handle different game states
+            if (state.game_state === 'playing') {
+                // Show word input
+                wordInputArea.classList.remove('hidden');
+                storyDisplay.classList.add('hidden');
+                nextButton.classList.add('hidden');
+
+                // Update progress
+                if (state.words_collected !== undefined && state.total_words !== undefined) {
+                    progressText.textContent = `Words: ${state.words_collected} / ${state.total_words}`;
+                }
+
+                // Focus input
+                setTimeout(() => {
+                    document.getElementById('word-input').focus();
+                }, 100);
+            } else if (state.game_state === 'finished') {
+                // Show completed story
+                wordInputArea.classList.add('hidden');
+                storyDisplay.classList.remove('hidden');
+                nextButton.classList.remove('hidden');
+
+                if (state.story) {
+                    document.getElementById('story-text').textContent = state.story;
+                }
+            } else {
+                // Lobby or instructions
+                wordInputArea.classList.add('hidden');
+                storyDisplay.classList.add('hidden');
+                nextButton.classList.remove('hidden');
+            }
+
+            // Update scoreboard
             const scoreboard = document.getElementById('scoreboard');
             scoreboard.innerHTML = '';
             (state.players || []).forEach(player => {

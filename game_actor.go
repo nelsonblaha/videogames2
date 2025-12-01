@@ -11,9 +11,10 @@ import (
 // GameActor manages a single game session using the actor model
 type GameActor struct {
 	id          string
-	state       string // "lobby", "instructions", "playing"
+	state       string // "lobby", "instructions", "playing", "finished"
 	currentGame string
 	players     map[string]*Player
+	madlib      *MadLib
 	mu          sync.RWMutex
 	actor       *Actor
 }
@@ -67,6 +68,8 @@ func (ga *GameActor) handleMessage(msg ActorMessage) {
 		ga.handleNextGame(m)
 	case PingMsg:
 		ga.handlePing(m)
+	case SubmitWordMsg:
+		ga.handleSubmitWord(m)
 	case BroadcastStateMsg:
 		ga.broadcastState()
 	case GetGameStateMsg:
@@ -135,6 +138,7 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 
 		if allReady && len(ga.players) > 0 {
 			ga.state = "playing"
+			ga.madlib = NewMadLib()
 			// Reset ready status
 			for _, p := range ga.players {
 				p.Ready = false
@@ -143,14 +147,42 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 		ga.broadcastState()
 
 	case "playing":
-		// End current game and go back to lobby
+		// This shouldn't be called during playing - words are submitted via SubmitWordMsg
+		ga.broadcastState()
+
+	case "finished":
+		// Go back to lobby
 		ga.state = "lobby"
 		ga.currentGame = ""
+		ga.madlib = nil
 		for _, p := range ga.players {
 			p.Ready = false
 		}
 		ga.broadcastState()
 	}
+}
+
+func (ga *GameActor) handleSubmitWord(msg SubmitWordMsg) {
+	ga.mu.Lock()
+	defer ga.mu.Unlock()
+
+	if ga.state != "playing" || ga.madlib == nil {
+		return
+	}
+
+	// Add word to mad lib
+	isComplete := ga.madlib.AddWord(msg.Word)
+
+	// Award point to player
+	if player, exists := ga.players[msg.PlayerID]; exists {
+		player.Score++
+	}
+
+	if isComplete {
+		ga.state = "finished"
+	}
+
+	ga.broadcastState()
 }
 
 func (ga *GameActor) handlePing(msg PingMsg) {
@@ -234,18 +266,49 @@ func (ga *GameActor) broadcastState() {
 		}
 
 	case "playing":
-		gameTitle = "Mad Libs - Playing!"
-		gameInstructions = "Game in progress..."
-		roundInstructions = "Have fun!"
+		if ga.madlib != nil {
+			currentPrompt := ga.madlib.CurrentPrompt()
+			gameTitle = "Mad Libs"
+			gameInstructions = "Enter a word for:"
+			roundInstructions = currentPrompt
+		} else {
+			gameTitle = "Mad Libs"
+			gameInstructions = "Loading..."
+			roundInstructions = ""
+		}
+
+	case "finished":
+		gameTitle = "Story Complete!"
+		gameInstructions = "Here's your Mad Lib:"
+		if ga.madlib != nil {
+			roundInstructions = ga.madlib.GetStory()
+		} else {
+			roundInstructions = ""
+		}
+	}
+
+	stateData := map[string]interface{}{
+		"game_title":         gameTitle,
+		"game_instructions":  gameInstructions,
+		"round_instructions": roundInstructions,
+		"players":            playersList,
+		"game_state":         ga.state,
+	}
+
+	// Add mad lib data if in playing state
+	if ga.state == "playing" && ga.madlib != nil {
+		stateData["current_prompt"] = ga.madlib.CurrentPrompt()
+		stateData["words_collected"] = len(ga.madlib.Words) - countEmpty(ga.madlib.Words)
+		stateData["total_words"] = len(ga.madlib.Words)
+	}
+
+	// Add completed story if finished
+	if ga.state == "finished" && ga.madlib != nil {
+		stateData["story"] = ga.madlib.GetStory()
 	}
 
 	stateMsg := map[string]interface{}{
-		"state": map[string]interface{}{
-			"game_title":         gameTitle,
-			"game_instructions":  gameInstructions,
-			"round_instructions": roundInstructions,
-			"players":            playersList,
-		},
+		"state": stateData,
 	}
 
 	jsonData, err := json.Marshal(stateMsg)
@@ -265,4 +328,14 @@ func (ga *GameActor) broadcastState() {
 		}
 		player.mu.Unlock()
 	}
+}
+
+func countEmpty(words []string) int {
+	count := 0
+	for _, w := range words {
+		if w == "" {
+			count++
+		}
+	}
+	return count
 }

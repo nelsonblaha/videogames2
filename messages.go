@@ -36,6 +36,13 @@ type PlayerReadyMsg struct {
 
 func (m PlayerReadyMsg) ActorMessage() {}
 
+type SubmitWordMsg struct {
+	PlayerID string
+	Word     string
+}
+
+func (m SubmitWordMsg) ActorMessage() {}
+
 // Game state broadcast message
 type BroadcastStateMsg struct{}
 
