@@ -14,7 +14,7 @@ type GameActor struct {
 	state       string // "lobby", "instructions", "playing", "finished"
 	currentGame string
 	players     map[string]*Player
-	madlib      *MadLib
+	game        GameType
 	mu          sync.RWMutex
 	actor       *Actor
 }
@@ -116,9 +116,9 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 
 	switch ga.state {
 	case "lobby", "":
-		// Move to instructions
+		// Pick a random game and move to instructions
 		ga.state = "instructions"
-		ga.currentGame = "madlibs"
+		ga.currentGame = RandomGameType()
 		ga.broadcastState()
 
 	case "instructions":
@@ -138,7 +138,7 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 
 		if allReady && len(ga.players) > 0 {
 			ga.state = "playing"
-			ga.madlib = NewMadLib()
+			ga.game = CreateGame(ga.currentGame)
 			// Reset ready status
 			for _, p := range ga.players {
 				p.Ready = false
@@ -151,10 +151,10 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 		ga.broadcastState()
 
 	case "finished":
-		// Go back to lobby
-		ga.state = "lobby"
-		ga.currentGame = ""
-		ga.madlib = nil
+		// Pick next random game and move to instructions
+		ga.state = "instructions"
+		ga.currentGame = RandomGameType()
+		ga.game = nil
 		for _, p := range ga.players {
 			p.Ready = false
 		}
@@ -166,12 +166,12 @@ func (ga *GameActor) handleSubmitWord(msg SubmitWordMsg) {
 	ga.mu.Lock()
 	defer ga.mu.Unlock()
 
-	if ga.state != "playing" || ga.madlib == nil {
+	if ga.state != "playing" || ga.game == nil {
 		return
 	}
 
-	// Add word to mad lib
-	isComplete := ga.madlib.AddWord(msg.Word)
+	// Submit word/answer to current game
+	isComplete := ga.game.SubmitAnswer(msg.PlayerID, msg.Word)
 
 	// Award point to player
 	if player, exists := ga.players[msg.PlayerID]; exists {
@@ -257,8 +257,14 @@ func (ga *GameActor) broadcastState() {
 		}
 
 	case "instructions":
-		gameTitle = "Mad Libs"
-		gameInstructions = "Fill in the blanks with funny words!"
+		if ga.currentGame != "" {
+			tempGame := CreateGame(ga.currentGame)
+			gameTitle = tempGame.GetName()
+			gameInstructions = tempGame.GetInstructions()
+		} else {
+			gameTitle = "Get Ready!"
+			gameInstructions = "Prepare for the next game"
+		}
 		if numPlayers == 1 {
 			roundInstructions = "Click 'Next' when ready to play"
 		} else {
@@ -266,23 +272,28 @@ func (ga *GameActor) broadcastState() {
 		}
 
 	case "playing":
-		if ga.madlib != nil {
-			currentPrompt := ga.madlib.CurrentPrompt()
-			gameTitle = "Mad Libs"
-			gameInstructions = "Enter a word for:"
-			roundInstructions = currentPrompt
+		if ga.game != nil {
+			gameTitle = ga.game.GetName()
+			if ga.game.NeedsInput() {
+				gameInstructions = "Enter your answer:"
+				roundInstructions = ga.game.GetPrompt()
+			} else {
+				gameInstructions = ga.game.GetInstructions()
+				roundInstructions = ga.game.GetPrompt()
+			}
 		} else {
-			gameTitle = "Mad Libs"
+			gameTitle = "Playing..."
 			gameInstructions = "Loading..."
 			roundInstructions = ""
 		}
 
 	case "finished":
-		gameTitle = "Story Complete!"
-		gameInstructions = "Here's your Mad Lib:"
-		if ga.madlib != nil {
-			roundInstructions = ga.madlib.GetStory()
+		gameTitle = "Game Complete!"
+		if ga.game != nil {
+			gameInstructions = ga.game.GetName() + " finished!"
+			roundInstructions = ga.game.GetResult()
 		} else {
+			gameInstructions = "Click Next for another game"
 			roundInstructions = ""
 		}
 	}
@@ -293,18 +304,22 @@ func (ga *GameActor) broadcastState() {
 		"round_instructions": roundInstructions,
 		"players":            playersList,
 		"game_state":         ga.state,
+		"game_type":          ga.currentGame,
+		"needs_input":        ga.game != nil && ga.game.NeedsInput(),
 	}
 
-	// Add mad lib data if in playing state
-	if ga.state == "playing" && ga.madlib != nil {
-		stateData["current_prompt"] = ga.madlib.CurrentPrompt()
-		stateData["words_collected"] = len(ga.madlib.Words) - countEmpty(ga.madlib.Words)
-		stateData["total_words"] = len(ga.madlib.Words)
+	// Add game-specific data for Mad Libs
+	if ga.state == "playing" && ga.currentGame == "madlibs" && ga.game != nil {
+		if madlib, ok := ga.game.(*MadLib); ok {
+			stateData["current_prompt"] = madlib.CurrentPrompt()
+			stateData["words_collected"] = len(madlib.Words) - countEmpty(madlib.Words)
+			stateData["total_words"] = len(madlib.Words)
+		}
 	}
 
-	// Add completed story if finished
-	if ga.state == "finished" && ga.madlib != nil {
-		stateData["story"] = ga.madlib.GetStory()
+	// Add completed result if finished
+	if ga.state == "finished" && ga.game != nil {
+		stateData["story"] = ga.game.GetResult()
 	}
 
 	stateMsg := map[string]interface{}{
