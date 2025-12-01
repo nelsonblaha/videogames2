@@ -365,13 +365,14 @@ func (ga *GameActor) broadcastState() {
 
 	case "playing":
 		if ga.game != nil {
-			gameTitle = ga.game.GetName()
+			// Use the prompt as the big title text
+			gameTitle = ga.game.GetPrompt()
 			if ga.game.NeedsInput() {
 				gameInstructions = "Enter your answer:"
-				roundInstructions = ga.game.GetPrompt()
+				roundInstructions = ""
 			} else {
 				gameInstructions = ""
-				roundInstructions = ga.game.GetPrompt()
+				roundInstructions = ""
 			}
 		} else {
 			gameTitle = "Playing..."
@@ -483,12 +484,14 @@ func (ga *GameActor) broadcastState() {
 
 					// Actor gets told who to imitate
 					if player.ID == im.GetActor() {
+						playerStateData["game_title"] = "Imitate " + im.GetPerson() + "!"
 						playerStateData["game_instructions"] = "You are the actor!"
-						playerStateData["round_instructions"] = "Imitate " + im.GetPerson() + " without saying their name!"
+						playerStateData["round_instructions"] = ""
 					} else {
 						// Guessers get the normal prompt
+						playerStateData["game_title"] = "Guess who's being imitated!"
 						playerStateData["game_instructions"] = "Enter your answer:"
-						playerStateData["round_instructions"] = "Guess who's being imitated!"
+						playerStateData["round_instructions"] = ""
 					}
 
 					playerStateMsg = map[string]interface{}{
