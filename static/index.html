@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Games 2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        #app {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; text-align: center; }
+        h2 { color: #666; }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover { background: #45a049; }
+        #scoreboard {
+            list-style: none;
+            padding: 0;
+        }
+        #scoreboard li {
+            padding: 10px;
+            margin: 5px 0;
+            background: #e0e0e0;
+            border-radius: 5px;
+        }
+        .hidden { display: none; }
+        #jitsi { margin-top: 20px; min-height: 400px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1 id="game-title">Video Games</h1>
+
+        <div id="join-form">
+            <h2>Join Game</h2>
+            <input type="text" id="group-name" placeholder="Group name" />
+            <input type="text" id="player-name" placeholder="Your name" />
+            <button onclick="joinGame()">Join</button>
+        </div>
+
+        <div id="game-area" class="hidden">
+            <h2 id="game-instructions"></h2>
+            <p id="round-instructions"></p>
+
+            <button id="next-btn" onclick="nextGame()">Next</button>
+
+            <h3>Players</h3>
+            <ul id="scoreboard"></ul>
+        </div>
+
+        <div id="jitsi"></div>
+    </div>
+
+    <script>
+        let ws;
+        let playerName = '';
+        let groupName = '';
+
+        // Check if user is authenticated via homepage
+        fetch('/api/user')
+            .then(r => r.json())
+            .then(data => {
+                if (data.authenticated && data.name) {
+                    // Auto-join homepage session
+                    document.getElementById('player-name').value = data.name;
+                    document.getElementById('group-name').value = 'homepage';
+                }
+            });
+
+        function joinGame() {
+            groupName = document.getElementById('group-name').value || 'default';
+            playerName = document.getElementById('player-name').value || 'Guest';
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify({
+                    action: 'join',
+                    data: {
+                        group: groupName,
+                        name: playerName
+                    }
+                }));
+
+                document.getElementById('join-form').classList.add('hidden');
+                document.getElementById('game-area').classList.remove('hidden');
+
+                // Start ping interval
+                setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({action: 'ping'}));
+                    }
+                }, 15000);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateGameState(data.state);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket closed');
+            };
+        }
+
+        function nextGame() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({action: 'next-game'}));
+            }
+        }
+
+        function updateGameState(state) {
+            document.getElementById('game-title').textContent = state.game_title || 'Video Games';
+            document.getElementById('game-instructions').textContent = state.game_instructions || '';
+            document.getElementById('round-instructions').textContent = state.round_instructions || '';
+
+            const scoreboard = document.getElementById('scoreboard');
+            scoreboard.innerHTML = '';
+            (state.players || []).forEach(player => {
+                const li = document.createElement('li');
+                li.textContent = `${player.name}: ${player.score} ${player.ready ? '✓' : ''}`;
+                scoreboard.appendChild(li);
+            });
+        }
+
+        // Auto-join if URL has group parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('group')) {
+            document.getElementById('group-name').value = urlParams.get('group');
+            if (urlParams.get('name')) {
+                document.getElementById('player-name').value = urlParams.get('name');
+                joinGame();
+            }
+        }
+    </script>
+</body>
+</html>
