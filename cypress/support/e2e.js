@@ -1,5 +1,37 @@
 // Custom Cypress commands for videogames2 testing
 
+// Mock Jitsi and YouTube before each test
+beforeEach(() => {
+  // Intercept external script loads
+  cy.intercept('GET', '**/external_api.js', '').as('jitsiScript')
+  cy.intercept('GET', '**/iframe_api', '').as('youtubeScript')
+
+  cy.on('window:before:load', (win) => {
+    // Mock JitsiMeetExternalAPI
+    win.JitsiMeetExternalAPI = class {
+      constructor() {
+        this.disposed = false
+      }
+      dispose() {
+        this.disposed = true
+      }
+    }
+
+    // Mock YouTube API
+    win.YT = {
+      Player: class {
+        constructor() {}
+        playVideo() {}
+        stopVideo() {}
+        loadVideoById() {}
+      },
+      PlayerState: {
+        ENDED: 0
+      }
+    }
+  })
+})
+
 Cypress.Commands.add('joinGame', (playerName, groupName = 'test-game') => {
   cy.visit('/')
   cy.get('#player-name').clear().type(playerName)
