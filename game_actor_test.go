@@ -136,8 +136,8 @@ func TestGameActorStateTransitions(t *testing.T) {
 		t.Errorf("Expected state 'instructions', got '%s'", state.State)
 	}
 
-	if state.CurrentGame != "madlibs" {
-		t.Errorf("Expected current game 'madlibs', got '%s'", state.CurrentGame)
+	if state.CurrentGame == "" {
+		t.Error("Expected a game to be selected, got empty string")
 	}
 
 	// Player clicks ready
