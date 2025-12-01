@@ -95,3 +95,14 @@ func replaceFirst(s, old, new string) string {
 	}
 	return s
 }
+
+// Implement GameType interface
+func (m *MadLib) GetName() string         { return "Mad Libs" }
+func (m *MadLib) GetInstructions() string { return "Fill in the blanks with words!" }
+func (m *MadLib) GetID() string           { return "madlibs" }
+func (m *MadLib) NeedsInput() bool        { return true }
+func (m *MadLib) GetPrompt() string       { return m.CurrentPrompt() }
+func (m *MadLib) SubmitAnswer(playerID, answer string) bool {
+	return m.AddWord(answer)
+}
+func (m *MadLib) GetResult() string { return m.GetStory() }
