@@ -103,7 +103,7 @@ type ClaudesGame struct {
 	word1       string
 	word2       string
 	submissions map[string]string
-	maxAnswers  int
+	numPlayers  int
 }
 
 var claudesGameWords = []string{
@@ -117,7 +117,7 @@ func NewClaudesGame() *ClaudesGame {
 		word1:       claudesGameWords[shuffled[0]],
 		word2:       claudesGameWords[shuffled[1]],
 		submissions: make(map[string]string),
-		maxAnswers:  3,
+		numPlayers:  1, // will be updated when first player submits
 	}
 }
 
@@ -129,12 +129,18 @@ func (c *ClaudesGame) GetPrompt() string {
 	return "How are " + c.word1 + " and " + c.word2 + " connected?"
 }
 func (c *ClaudesGame) SubmitAnswer(playerID, answer string) bool {
-	c.submissions[playerID] = answer
-	return len(c.submissions) >= c.maxAnswers
+	// Only accept one answer per player
+	if _, exists := c.submissions[playerID]; !exists {
+		c.submissions[playerID] = answer
+	}
+	// Complete when all players have submitted (need at least 1)
+	return len(c.submissions) >= c.numPlayers && c.numPlayers > 0
 }
-func (c *ClaudesGame) IsComplete() bool { return len(c.submissions) >= c.maxAnswers }
+func (c *ClaudesGame) IsComplete() bool {
+	return len(c.submissions) >= c.numPlayers && c.numPlayers > 0
+}
 func (c *ClaudesGame) GetResult() string {
-	result := "Connections:\n"
+	result := "Pick the best connection between " + c.word1 + " and " + c.word2 + ":\n"
 	for _, answer := range c.submissions {
 		result += "- " + answer + "\n"
 	}

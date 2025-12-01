@@ -16,6 +16,7 @@ type GameActor struct {
 	players     map[string]*Player
 	game        GameType
 	votes       map[string]string // playerID -> votedForPlayerID
+	winners     []string          // names of winners from last vote
 	mu          sync.RWMutex
 	actor       *Actor
 }
@@ -142,6 +143,12 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 		if allReady && len(ga.players) > 0 {
 			ga.state = "playing"
 			ga.game = CreateGame(ga.currentGame)
+
+			// Set number of players for Claude's Game
+			if cg, ok := ga.game.(*ClaudesGame); ok {
+				cg.numPlayers = len(ga.players)
+			}
+
 			// Reset ready status
 			for _, p := range ga.players {
 				p.Ready = false
@@ -158,6 +165,7 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 		ga.state = "instructions"
 		ga.currentGame = RandomGameType()
 		ga.game = nil
+		ga.winners = nil
 		for _, p := range ga.players {
 			p.Ready = false
 		}
@@ -184,10 +192,11 @@ func (ga *GameActor) handleSubmitWord(msg SubmitWordMsg) {
 	}
 
 	if isComplete {
-		// Games that need voting: youlaughyoulose, firsttofind, blankestblank
+		// Games that need voting: youlaughyoulose, firsttofind, blankestblank, claudesgame
 		needsVoting := ga.currentGame == "youlaughyoulose" ||
 			ga.currentGame == "firsttofind" ||
-			ga.currentGame == "blankestblank"
+			ga.currentGame == "blankestblank" ||
+			ga.currentGame == "claudesgame"
 
 		if needsVoting {
 			ga.state = "voting"
@@ -228,12 +237,12 @@ func (ga *GameActor) handleVote(msg VoteMsg) {
 		}
 
 		// Award points to winner(s)
-		winners := []string{}
+		ga.winners = []string{}
 		for playerID, count := range voteCounts {
 			if count == maxVotes {
 				if player, exists := ga.players[playerID]; exists {
 					player.Score += 3
-					winners = append(winners, player.Name)
+					ga.winners = append(ga.winners, player.Name)
 				}
 			}
 		}
@@ -361,7 +370,23 @@ func (ga *GameActor) broadcastState() {
 		gameTitle = "Game Complete!"
 		if ga.game != nil {
 			gameInstructions = ga.game.GetName() + " finished!"
-			roundInstructions = ga.game.GetResult()
+			if len(ga.winners) > 0 {
+				if len(ga.winners) == 1 {
+					roundInstructions = ga.winners[0] + " wins! " + ga.game.GetResult()
+				} else {
+					// Tie
+					winnersList := ""
+					for i, w := range ga.winners {
+						if i > 0 {
+							winnersList += ", "
+						}
+						winnersList += w
+					}
+					roundInstructions = "Tie! " + winnersList + " win! " + ga.game.GetResult()
+				}
+			} else {
+				roundInstructions = ga.game.GetResult()
+			}
 		} else {
 			gameInstructions = "Click Next for another game"
 			roundInstructions = ""
