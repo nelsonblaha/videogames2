@@ -468,12 +468,6 @@ func (ga *GameActor) broadcastState() {
 		"state": stateData,
 	}
 
-	jsonData, err := json.Marshal(stateMsg)
-	if err != nil {
-		log.Printf("Error marshaling state: %v", err)
-		return
-	}
-
 	// Send to all players (personalized for Imitations)
 	for _, player := range ga.players {
 		player.mu.Lock()
