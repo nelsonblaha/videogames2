@@ -156,6 +156,15 @@
             });
 
         function initJitsi(roomName, displayName) {
+            console.log('Initializing Jitsi:', { roomName, displayName });
+
+            // Check if external_api.js loaded
+            if (typeof JitsiMeetExternalAPI === 'undefined') {
+                console.error('JitsiMeetExternalAPI is not defined - external_api.js failed to load');
+                alert('Jitsi failed to load. Please check your network connection and reload.');
+                return;
+            }
+
             const domain = 'videogames2-jitsi.blaha.io';
             const options = {
                 roomName: roomName,
@@ -183,7 +192,27 @@
                     ],
                 },
             };
-            jitsiApi = new JitsiMeetExternalAPI(domain, options);
+
+            try {
+                jitsiApi = new JitsiMeetExternalAPI(domain, options);
+                console.log('Jitsi API initialized successfully');
+
+                // Add event listeners for debugging
+                jitsiApi.addEventListener('videoConferenceJoined', () => {
+                    console.log('Successfully joined Jitsi conference');
+                });
+
+                jitsiApi.addEventListener('videoConferenceLeft', () => {
+                    console.log('Left Jitsi conference');
+                });
+
+                jitsiApi.addEventListener('readyToClose', () => {
+                    console.log('Jitsi ready to close');
+                });
+            } catch (error) {
+                console.error('Error initializing Jitsi:', error);
+                alert('Error starting video chat: ' + error.message);
+            }
         }
 
         function joinGame() {
