@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [nelnet-ci-updated]
+  # NOTE: pull_request trigger removed for security
+  # Self-hosted runners should not run untrusted code from forks
+
+env:
+  CI_PROJECT: videogames2-ci-${{ github.run_id }}
+
+jobs:
+  test:
+    runs-on: self-hosted
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Run tests
+        run: |
+          cd /home/ben/src/videogames2
+          go test -v ./...
+
+  build:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t videogames2:${{ github.sha }} /home/ben/src/videogames2
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Deploy to production
+        env:
+          DEPLOY_PATH: /home/ben/src/videogames2
+          STACK_PATH: /home/ben/stacks/videogames2
+        run: |
+          cd "$DEPLOY_PATH"
+
+          # Mark directory as safe
+          git config --global --add safe.directory "$DEPLOY_PATH"
+
+          # Pull latest code
+          git remote set-url origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+          git fetch origin master
+          git reset --hard origin/master
+
+          # Restore SSH remote
+          git remote set-url origin git@github.com:${{ github.repository }}.git
+
+          # Rebuild and restart container
+          cd "$STACK_PATH"
+          docker compose down
+          docker compose up -d --build
+          echo "Deploy complete!"
