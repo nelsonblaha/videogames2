@@ -167,6 +167,18 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 				log.Printf("Set %s as actor for Imitations in game %s", actorID, ga.id)
 			}
 
+			// Set random actor for Charades
+			if ch, ok := ga.game.(*Charades); ok && len(ga.players) > 0 {
+				// Pick random player as actor
+				playerIDs := make([]string, 0, len(ga.players))
+				for id := range ga.players {
+					playerIDs = append(playerIDs, id)
+				}
+				actorID := playerIDs[rand.Intn(len(playerIDs))]
+				ch.SetActor(actorID)
+				log.Printf("Set %s as actor for Charades in game %s", actorID, ga.id)
+			}
+
 			// Reset ready status
 			for _, p := range ga.players {
 				p.Ready = false
@@ -212,6 +224,14 @@ func (ga *GameActor) handleSubmitWord(msg SubmitWordMsg) {
 				if player, exists := ga.players[msg.PlayerID]; exists {
 					player.Score += 3 // Award 3 points for guessing correctly
 					im.SetWinnerName(player.Name)
+				}
+			}
+		} else if ch, ok := ga.game.(*Charades); ok {
+			// For Charades, only award points to the winner
+			if isComplete && ch.GetWinner() == msg.PlayerID {
+				if player, exists := ga.players[msg.PlayerID]; exists {
+					player.Score += 3 // Award 3 points for guessing correctly
+					ch.SetWinnerName(player.Name)
 				}
 			}
 		} else {
@@ -481,7 +501,7 @@ func (ga *GameActor) broadcastState() {
 	for _, player := range ga.players {
 		player.mu.Lock()
 		if player.Conn != nil {
-			// Personalize message for Imitations game
+			// Personalize message for Imitations and Charades games
 			playerStateMsg := stateMsg
 			if ga.state == "playing" && ga.currentGame == "imitations" {
 				if im, ok := ga.game.(*Imitations); ok {
@@ -499,6 +519,31 @@ func (ga *GameActor) broadcastState() {
 					} else {
 						// Guessers get the normal prompt
 						playerStateData["game_title"] = "Guess who's being imitated!"
+						playerStateData["game_instructions"] = "Enter your answer:"
+						playerStateData["round_instructions"] = ""
+						playerStateData["needs_input"] = true // Guesser needs to submit
+					}
+
+					playerStateMsg = map[string]interface{}{
+						"state": playerStateData,
+					}
+				}
+			} else if ga.state == "playing" && ga.currentGame == "charades" {
+				if ch, ok := ga.game.(*Charades); ok {
+					playerStateData := make(map[string]interface{})
+					for k, v := range stateData {
+						playerStateData[k] = v
+					}
+
+					// Actor gets told what to act out
+					if player.ID == ch.GetActor() {
+						playerStateData["game_title"] = "Act out: " + ch.GetTopic() + "!"
+						playerStateData["game_instructions"] = ""
+						playerStateData["round_instructions"] = ""
+						playerStateData["needs_input"] = false // Actor doesn't submit anything
+					} else {
+						// Guessers get the normal prompt
+						playerStateData["game_title"] = "Guess what's being acted out!"
 						playerStateData["game_instructions"] = "Enter your answer:"
 						playerStateData["round_instructions"] = ""
 						playerStateData["needs_input"] = true // Guesser needs to submit

@@ -63,7 +63,7 @@ func RandomGameType() string {
 // MinPlayersRequired returns the minimum number of players required for a game
 func MinPlayersRequired(gameType string) int {
 	switch gameType {
-	case "imitations":
+	case "imitations", "charades":
 		return 2 // Needs 1 actor + at least 1 guesser
 	default:
 		return 1 // Most games work with 1 player
@@ -88,9 +88,12 @@ func RandomGameTypeForPlayers(playerCount int) string {
 
 // Charades game
 type Charades struct {
-	topic   string
-	actor   string
-	guessed bool
+	topic       string
+	actorID     string
+	guessed     bool
+	winnerID    string
+	winnerName  string
+	submissions map[string]string // Track all guesses
 }
 
 var charadeTopics = []string{
@@ -101,9 +104,22 @@ var charadeTopics = []string{
 
 func NewCharades() *Charades {
 	return &Charades{
-		topic:   charadeTopics[rand.Intn(len(charadeTopics))],
-		guessed: false,
+		topic:       charadeTopics[rand.Intn(len(charadeTopics))],
+		guessed:     false,
+		submissions: make(map[string]string),
 	}
+}
+
+func (c *Charades) SetActor(actorID string) {
+	c.actorID = actorID
+}
+
+func (c *Charades) GetActor() string {
+	return c.actorID
+}
+
+func (c *Charades) GetTopic() string {
+	return c.topic
 }
 
 func (c *Charades) GetName() string         { return "Charades" }
@@ -112,17 +128,39 @@ func (c *Charades) GetID() string           { return "charades" }
 func (c *Charades) NeedsInput() bool        { return true }
 func (c *Charades) GetPrompt() string       { return "Guess what's being acted out!" }
 func (c *Charades) SubmitAnswer(playerID, answer string) bool {
-	// TODO: Check if answer matches topic
-	c.guessed = true
-	return true
+	// Don't allow the actor to guess
+	if playerID == c.actorID {
+		return false
+	}
+
+	// Store the guess
+	c.submissions[playerID] = answer
+
+	// Check if answer matches topic using fuzzy matching
+	if fuzzyMatch(answer, c.topic) {
+		c.guessed = true
+		c.winnerID = playerID
+		return true
+	}
+
+	return false
 }
 func (c *Charades) IsComplete() bool { return c.guessed }
 func (c *Charades) GetResult() string {
+	if c.winnerName != "" {
+		return c.winnerName + " guessed it! The topic was: " + c.topic
+	}
 	return "The topic was: " + c.topic
 }
-func (c *Charades) HasTimer() bool           { return false }
-func (c *Charades) GetTimeRemaining() int    { return 0 }
-func (c *Charades) DecrementTimer()          {}
+func (c *Charades) GetWinner() string {
+	return c.winnerID
+}
+func (c *Charades) SetWinnerName(name string) {
+	c.winnerName = name
+}
+func (c *Charades) HasTimer() bool        { return false }
+func (c *Charades) GetTimeRemaining() int { return 0 }
+func (c *Charades) DecrementTimer()       {}
 
 // Claude's Game
 type ClaudesGame struct {
