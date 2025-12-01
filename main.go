@@ -120,6 +120,15 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 					Word:     word,
 				})
 			}
+
+		case "vote":
+			if gameActor != nil {
+				votedForID, _ := data["player_id"].(string)
+				gameActor.Send(VoteMsg{
+					PlayerID:   playerID,
+					VotedForID: votedForID,
+				})
+			}
 		}
 	}
 }

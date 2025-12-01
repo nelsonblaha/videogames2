@@ -43,6 +43,13 @@ type SubmitWordMsg struct {
 
 func (m SubmitWordMsg) ActorMessage() {}
 
+type VoteMsg struct {
+	PlayerID     string
+	VotedForID   string
+}
+
+func (m VoteMsg) ActorMessage() {}
+
 // Game state broadcast message
 type BroadcastStateMsg struct{}
 

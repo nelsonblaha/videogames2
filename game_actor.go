@@ -11,10 +11,11 @@ import (
 // GameActor manages a single game session using the actor model
 type GameActor struct {
 	id          string
-	state       string // "lobby", "instructions", "playing", "finished"
+	state       string // "lobby", "instructions", "playing", "voting", "finished"
 	currentGame string
 	players     map[string]*Player
 	game        GameType
+	votes       map[string]string // playerID -> votedForPlayerID
 	mu          sync.RWMutex
 	actor       *Actor
 }
@@ -70,6 +71,8 @@ func (ga *GameActor) handleMessage(msg ActorMessage) {
 		ga.handlePing(m)
 	case SubmitWordMsg:
 		ga.handleSubmitWord(m)
+	case VoteMsg:
+		ga.handleVote(m)
 	case BroadcastStateMsg:
 		ga.broadcastState()
 	case GetGameStateMsg:
@@ -179,10 +182,61 @@ func (ga *GameActor) handleSubmitWord(msg SubmitWordMsg) {
 	}
 
 	if isComplete {
-		ga.state = "finished"
+		// For "You Laugh You Lose", go to voting
+		if ga.currentGame == "youlaughyoulose" {
+			ga.state = "voting"
+			ga.votes = make(map[string]string)
+		} else {
+			ga.state = "finished"
+		}
 	}
 
 	ga.broadcastState()
+}
+
+func (ga *GameActor) handleVote(msg VoteMsg) {
+	ga.mu.Lock()
+	defer ga.mu.Unlock()
+
+	if ga.state != "voting" {
+		return
+	}
+
+	// Record vote
+	ga.votes[msg.PlayerID] = msg.VotedForID
+
+	// Check if all players have voted
+	if len(ga.votes) >= len(ga.players) {
+		// Count votes
+		voteCounts := make(map[string]int)
+		for _, votedFor := range ga.votes {
+			voteCounts[votedFor]++
+		}
+
+		// Find winner(s)
+		maxVotes := 0
+		for _, count := range voteCounts {
+			if count > maxVotes {
+				maxVotes = count
+			}
+		}
+
+		// Award points to winner(s)
+		winners := []string{}
+		for playerID, count := range voteCounts {
+			if count == maxVotes {
+				if player, exists := ga.players[playerID]; exists {
+					player.Score += 3
+					winners = append(winners, player.Name)
+				}
+			}
+		}
+
+		ga.state = "finished"
+		ga.broadcastState()
+	} else {
+		ga.broadcastState()
+	}
 }
 
 func (ga *GameActor) handlePing(msg PingMsg) {
@@ -287,6 +341,11 @@ func (ga *GameActor) broadcastState() {
 			roundInstructions = ""
 		}
 
+	case "voting":
+		gameTitle = "Time to Vote!"
+		gameInstructions = "Who kept the straightest face?"
+		roundInstructions = "Vote for the person who didn't laugh!"
+
 	case "finished":
 		gameTitle = "Game Complete!"
 		if ga.game != nil {
@@ -306,6 +365,24 @@ func (ga *GameActor) broadcastState() {
 		"game_state":         ga.state,
 		"game_type":          ga.currentGame,
 		"needs_input":        ga.game != nil && ga.game.NeedsInput(),
+	}
+
+	// Add YouTube video ID for You Laugh You Lose
+	if ga.currentGame == "youlaughyoulose" && ga.game != nil {
+		if ylyl, ok := ga.game.(*YouLaughYouLose); ok {
+			stateData["youtube_video_id"] = ylyl.videoID
+		}
+	}
+
+	// Add voting data
+	if ga.state == "voting" {
+		votedPlayers := []string{}
+		for playerID := range ga.votes {
+			votedPlayers = append(votedPlayers, playerID)
+		}
+		stateData["voted_players"] = votedPlayers
+		stateData["total_votes"] = len(ga.votes)
+		stateData["expected_votes"] = len(ga.players)
 	}
 
 	// Add game-specific data for Mad Libs

@@ -4,6 +4,7 @@
     <title>Video Games 2</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src='https://videogames2-jitsi.blaha.io/external_api.js'></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -75,6 +76,9 @@
     <div id="container">
         <div id="video-pane">
             <div id="jitsi-container"></div>
+            <div id="youtube-container" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000;">
+                <div id="youtube-player"></div>
+            </div>
         </div>
 
         <div id="game-pane">
@@ -102,6 +106,15 @@
                         <div id="story-text"></div>
                     </div>
 
+                    <div id="voting-area" class="hidden">
+                        <p>Who kept the straightest face?</p>
+                        <select id="vote-select">
+                            <option value="">-- Select Player --</option>
+                        </select>
+                        <button onclick="submitVote()">Vote</button>
+                        <p id="vote-status"></p>
+                    </div>
+
                     <button id="next-button" onclick="nextGame()">Next</button>
 
                     <h3>Players</h3>
@@ -116,6 +129,8 @@
         let playerName = '';
         let groupName = '';
         let jitsiApi = null;
+        let youtubePlayer = null;
+        let currentPlayerID = '';
 
         // Check if user is authenticated via homepage
         fetch('/api/user')
@@ -236,6 +251,71 @@
             }
         }
 
+        function submitVote() {
+            const voteSelect = document.getElementById('vote-select');
+            const votedForID = voteSelect.value;
+
+            if (votedForID && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    action: 'vote',
+                    data: { player_id: votedForID }
+                }));
+                document.getElementById('vote-status').textContent = 'Vote submitted!';
+                voteSelect.disabled = true;
+            }
+        }
+
+        // YouTube API ready callback
+        function onYouTubeIframeAPIReady() {
+            // Will be created when needed
+        }
+
+        function playYouTubeVideo(videoID) {
+            document.getElementById('youtube-container').classList.remove('hidden');
+            document.getElementById('jitsi-container').style.width = '50%';
+            document.getElementById('youtube-container').style.width = '50%';
+            document.getElementById('youtube-container').style.left = '50%';
+
+            if (!youtubePlayer) {
+                youtubePlayer = new YT.Player('youtube-player', {
+                    height: '100%',
+                    width: '100%',
+                    videoId: videoID,
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange
+                    }
+                });
+            } else {
+                youtubePlayer.loadVideoById(videoID);
+            }
+        }
+
+        function onPlayerReady(event) {
+            event.target.playVideo();
+        }
+
+        function onPlayerStateChange(event) {
+            // When video ends (state == 0), trigger voting
+            if (event.data == YT.PlayerState.ENDED) {
+                // Send completion message to trigger voting
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        action: 'submit-word',
+                        data: { word: 'video_complete' }
+                    }));
+                }
+            }
+        }
+
+        function hideYouTubeVideo() {
+            document.getElementById('youtube-container').classList.add('hidden');
+            document.getElementById('jitsi-container').style.width = '100%';
+            if (youtubePlayer) {
+                youtubePlayer.stopVideo();
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const wordInput = document.getElementById('word-input');
             if (wordInput) {
@@ -254,23 +334,60 @@
 
             const wordInputArea = document.getElementById('word-input-area');
             const storyDisplay = document.getElementById('story-display');
+            const votingArea = document.getElementById('voting-area');
             const nextButton = document.getElementById('next-button');
             const progressText = document.getElementById('progress-text');
 
+            // Handle YouTube video for You Laugh You Lose
+            if (state.game_type === 'youlaughyoulose' && state.game_state === 'playing' && state.youtube_video_id) {
+                playYouTubeVideo(state.youtube_video_id);
+            } else {
+                hideYouTubeVideo();
+            }
+
             if (state.game_state === 'playing') {
-                wordInputArea.classList.remove('hidden');
+                wordInputArea.classList.add('hidden');
                 storyDisplay.classList.add('hidden');
+                votingArea.classList.add('hidden');
                 nextButton.classList.add('hidden');
 
-                if (state.words_collected !== undefined && state.total_words !== undefined) {
-                    progressText.textContent = `Words: ${state.words_collected} / ${state.total_words}`;
+                // Show word input only for games that need it (not You Laugh You Lose)
+                if (state.needs_input && state.game_type !== 'youlaughyoulose') {
+                    wordInputArea.classList.remove('hidden');
+                    if (state.words_collected !== undefined && state.total_words !== undefined) {
+                        progressText.textContent = `Words: ${state.words_collected} / ${state.total_words}`;
+                    }
+                    setTimeout(() => {
+                        document.getElementById('word-input').focus();
+                    }, 100);
                 }
+            } else if (state.game_state === 'voting') {
+                wordInputArea.classList.add('hidden');
+                storyDisplay.classList.add('hidden');
+                votingArea.classList.remove('hidden');
+                nextButton.classList.add('hidden');
 
-                setTimeout(() => {
-                    document.getElementById('word-input').focus();
-                }, 100);
+                // Populate voting dropdown
+                const voteSelect = document.getElementById('vote-select');
+                voteSelect.innerHTML = '<option value="">-- Select Player --</option>';
+                voteSelect.disabled = false;
+                document.getElementById('vote-status').textContent = '';
+
+                (state.players || []).forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = player.id;
+                    option.textContent = player.name;
+                    voteSelect.appendChild(option);
+                });
+
+                // Show voting status
+                if (state.total_votes !== undefined && state.expected_votes !== undefined) {
+                    document.getElementById('vote-status').textContent =
+                        `Votes: ${state.total_votes} / ${state.expected_votes}`;
+                }
             } else if (state.game_state === 'finished') {
                 wordInputArea.classList.add('hidden');
+                votingArea.classList.add('hidden');
                 storyDisplay.classList.remove('hidden');
                 nextButton.classList.remove('hidden');
 
@@ -280,6 +397,7 @@
             } else {
                 wordInputArea.classList.add('hidden');
                 storyDisplay.classList.add('hidden');
+                votingArea.classList.add('hidden');
                 nextButton.classList.remove('hidden');
             }
 
