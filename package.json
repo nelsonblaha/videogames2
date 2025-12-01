@@ -1,0 +1,22 @@
+{
+  "name": "videogames2",
+  "version": "1.0.0",
+  "description": "Multiplayer party games with actor-based architecture",
+  "scripts": {
+    "test:unit": "go test -v ./...",
+    "test:cypress": "cypress run",
+    "test:cypress:open": "cypress open",
+    "test": "npm run test:unit"
+  },
+  "devDependencies": {
+    "cypress": "^13.6.0"
+  },
+  "keywords": [
+    "websocket",
+    "multiplayer",
+    "games",
+    "actor-model"
+  ],
+  "author": "Ben Blaha",
+  "license": "MIT"
+}
