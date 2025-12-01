@@ -515,7 +515,7 @@ func (b *BlankestBlank) SubmitAnswer(playerID, answer string) bool {
 }
 func (b *BlankestBlank) IsComplete() bool { return !b.timerActive }
 func (b *BlankestBlank) GetResult() string {
-	return "Time's up! Vote for who showed the " + b.adjective + " " + b.noun
+	return "Who brought the " + b.adjective + " " + b.noun + "?"
 }
 func (b *BlankestBlank) HasTimer() bool { return true }
 func (b *BlankestBlank) GetTimeRemaining() int {

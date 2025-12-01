@@ -150,7 +150,7 @@
                     </div>
 
                     <div id="voting-area" class="hidden">
-                        <p>Who kept the straightest face?</p>
+                        <p id="voting-prompt">Vote for the winner!</p>
                         <select id="vote-select">
                             <option value="">-- Select Player --</option>
                         </select>
@@ -498,6 +498,9 @@
                 storyDisplay.classList.add('hidden');
                 votingArea.classList.remove('hidden');
                 nextButton.classList.add('hidden');
+
+                // Update voting prompt text - use round_instructions which says "Vote for the winner!"
+                document.getElementById('voting-prompt').textContent = state.round_instructions || 'Vote for the winner!';
 
                 // Populate voting dropdown
                 const voteSelect = document.getElementById('vote-select');
