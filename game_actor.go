@@ -370,7 +370,7 @@ func (ga *GameActor) broadcastState() {
 				gameInstructions = "Enter your answer:"
 				roundInstructions = ga.game.GetPrompt()
 			} else {
-				gameInstructions = ga.game.GetInstructions()
+				gameInstructions = ""
 				roundInstructions = ga.game.GetPrompt()
 			}
 		} else {
