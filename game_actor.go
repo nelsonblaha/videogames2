@@ -493,13 +493,15 @@ func (ga *GameActor) broadcastState() {
 					// Actor gets told who to imitate
 					if player.ID == im.GetActor() {
 						playerStateData["game_title"] = "Imitate " + im.GetPerson() + "!"
-						playerStateData["game_instructions"] = "You are the actor!"
+						playerStateData["game_instructions"] = ""
 						playerStateData["round_instructions"] = ""
+						playerStateData["needs_input"] = false // Actor doesn't submit anything
 					} else {
 						// Guessers get the normal prompt
 						playerStateData["game_title"] = "Guess who's being imitated!"
 						playerStateData["game_instructions"] = "Enter your answer:"
 						playerStateData["round_instructions"] = ""
+						playerStateData["needs_input"] = true // Guesser needs to submit
 					}
 
 					playerStateMsg = map[string]interface{}{
