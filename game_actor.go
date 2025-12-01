@@ -265,14 +265,20 @@ func (ga *GameActor) handleVote(msg VoteMsg) {
 	defer ga.mu.Unlock()
 
 	if ga.state != "voting" {
+		log.Printf("Vote received but state is %s, not voting", ga.state)
 		return
 	}
+
+	log.Printf("Vote received: %s voted for %s", msg.PlayerID, msg.VotedForID)
 
 	// Record vote
 	ga.votes[msg.PlayerID] = msg.VotedForID
 
+	log.Printf("Votes so far: %d/%d", len(ga.votes), len(ga.players))
+
 	// Check if all players have voted
 	if len(ga.votes) >= len(ga.players) {
+		log.Printf("All players have voted! Counting votes...")
 		// Count votes
 		voteCounts := make(map[string]int)
 		for _, votedFor := range ga.votes {
