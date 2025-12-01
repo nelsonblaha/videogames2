@@ -48,12 +48,14 @@
             box-sizing: border-box;
         }
         h1 { color: #333; text-align: center; margin: 10px 0; }
-        h2 { color: #666; margin: 10px 0; }
+        h2 { color: #666; text-align: center; margin: 10px 0; }
         h3 { color: #555; text-align: center; margin: 15px 0 10px 0; }
+        p { text-align: center; }
         input, button {
             padding: 10px;
-            margin: 5px 0;
+            margin: 5px auto;
             font-size: 16px;
+            display: block;
         }
         button {
             background: #4CAF50;
@@ -61,6 +63,7 @@
             border: none;
             cursor: pointer;
             border-radius: 5px;
+            min-width: 120px;
         }
         button:hover { background: #45a049; }
         #scoreboard {
@@ -94,6 +97,16 @@
             color: #ff5722;
             text-align: center;
             margin: 20px 0;
+        }
+        select {
+            padding: 10px;
+            margin: 5px auto;
+            font-size: 16px;
+            display: block;
+            min-width: 200px;
+        }
+        #voting-area {
+            text-align: center;
         }
     </style>
 </head>
