@@ -66,7 +66,10 @@ func TestActorStop(t *testing.T) {
 	actor.Send(TestMsg{Value: "msg1"})
 	actor.Send(TestMsg{Value: "msg2"})
 
-	// Stop immediately
+	// Give actor time to start processing
+	time.Sleep(20 * time.Millisecond)
+
+	// Stop
 	actor.Stop()
 
 	// Try to send after stop (should not crash)
@@ -75,9 +78,14 @@ func TestActorStop(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// Should have processed at least some messages
+	// Should have processed at least some messages before stop
 	if processed == 0 {
 		t.Error("No messages processed before stop")
+	}
+
+	// Should not process message sent after stop
+	if processed > 2 {
+		t.Errorf("Expected at most 2 messages processed, got %d", processed)
 	}
 }
 
