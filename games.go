@@ -499,11 +499,12 @@ func NewBlankestBlank() *BlankestBlank {
 
 func (b *BlankestBlank) GetName() string { return "Find the Blankest Blank" }
 func (b *BlankestBlank) GetInstructions() string {
-	return "Find the " + b.adjective + " " + b.noun + "!"
+	return "Click next when everyone has their " + b.noun
 }
 func (b *BlankestBlank) GetID() string     { return "blankestblank" }
 func (b *BlankestBlank) NeedsInput() bool  { return false }
 func (b *BlankestBlank) GetPrompt() string { return "Find the " + b.adjective + " " + b.noun + "!" }
+func (b *BlankestBlank) GetNoun() string   { return b.noun }
 func (b *BlankestBlank) SubmitAnswer(playerID, answer string) bool {
 	// Timer completion triggers voting
 	if answer == "timer_complete" {

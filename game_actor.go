@@ -379,7 +379,12 @@ func (ga *GameActor) broadcastState() {
 	case "instructions":
 		if ga.currentGame != "" {
 			tempGame := CreateGame(ga.currentGame)
-			gameTitle = tempGame.GetName()
+			// For BlankestBlank, use the prompt as the title instead of the generic game name
+			if ga.currentGame == "blankestblank" {
+				gameTitle = tempGame.GetPrompt()
+			} else {
+				gameTitle = tempGame.GetName()
+			}
 			gameInstructions = tempGame.GetInstructions()
 		} else {
 			gameTitle = "Get Ready!"
