@@ -121,9 +121,9 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 
 	switch ga.state {
 	case "lobby", "":
-		// Pick a random game and move to instructions
+		// Pick a random game appropriate for player count and move to instructions
 		ga.state = "instructions"
-		ga.currentGame = RandomGameType()
+		ga.currentGame = RandomGameTypeForPlayers(len(ga.players))
 		ga.broadcastState()
 
 	case "instructions":
@@ -173,9 +173,9 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 		ga.broadcastState()
 
 	case "finished":
-		// Pick next random game and move to instructions
+		// Pick next random game appropriate for player count and move to instructions
 		ga.state = "instructions"
-		ga.currentGame = RandomGameType()
+		ga.currentGame = RandomGameTypeForPlayers(len(ga.players))
 		ga.game = nil
 		ga.winners = nil
 		for _, p := range ga.players {

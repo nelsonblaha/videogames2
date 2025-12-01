@@ -60,6 +60,24 @@ func RandomGameType() string {
 	return AllGames[rand.Intn(len(AllGames))]
 }
 
+// RandomGameTypeForPlayers returns a random game type appropriate for the player count
+func RandomGameTypeForPlayers(playerCount int) string {
+	validGames := []string{}
+	for _, game := range AllGames {
+		// Imitations requires at least 2 players (1 actor + 1 guesser)
+		if game == "imitations" && playerCount < 2 {
+			continue
+		}
+		validGames = append(validGames, game)
+	}
+
+	if len(validGames) == 0 {
+		return "madlibs" // fallback
+	}
+
+	return validGames[rand.Intn(len(validGames))]
+}
+
 // Charades game
 type Charades struct {
 	topic   string
