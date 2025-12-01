@@ -130,18 +130,23 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 		// Mark player as ready
 		if player, exists := ga.players[msg.PlayerID]; exists {
 			player.Ready = true
+			log.Printf("Player %s marked ready in game %s", player.Name, ga.id)
 		}
 
 		// Check if all players are ready
 		allReady := true
+		readyCount := 0
 		for _, p := range ga.players {
-			if !p.Ready {
+			if p.Ready {
+				readyCount++
+			} else {
 				allReady = false
-				break
 			}
 		}
+		log.Printf("Ready check: %d/%d players ready in game %s", readyCount, len(ga.players), ga.id)
 
 		if allReady && len(ga.players) > 0 {
+			log.Printf("All players ready! Starting %s in game %s", ga.currentGame, ga.id)
 			ga.state = "playing"
 			ga.game = CreateGame(ga.currentGame)
 
@@ -159,6 +164,7 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 				}
 				actorID := playerIDs[rand.Intn(len(playerIDs))]
 				im.SetActor(actorID)
+				log.Printf("Set %s as actor for Imitations in game %s", actorID, ga.id)
 			}
 
 			// Reset ready status
@@ -174,8 +180,10 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 
 	case "finished":
 		// Pick next random game appropriate for player count and move to instructions
+		log.Printf("Game finished in %s, picking next game", ga.id)
 		ga.state = "instructions"
 		ga.currentGame = RandomGameTypeForPlayers(len(ga.players))
+		log.Printf("Next game will be: %s", ga.currentGame)
 		ga.game = nil
 		ga.winners = nil
 		for _, p := range ga.players {
