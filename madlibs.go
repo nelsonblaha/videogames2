@@ -6,9 +6,10 @@ import (
 )
 
 type MadLib struct {
-	Template string
-	Prompts  []string
-	Words    []string
+	Template      string
+	Prompts       []string
+	Words         []string
+	playerPrompts map[string]int // tracks which prompt index each player is currently on
 }
 
 var madLibTemplates = []MadLib{
@@ -41,22 +42,65 @@ func init() {
 func NewMadLib() *MadLib {
 	template := madLibTemplates[rand.Intn(len(madLibTemplates))]
 	return &MadLib{
-		Template: template.Template,
-		Prompts:  template.Prompts,
-		Words:    make([]string, len(template.Prompts)),
+		Template:      template.Template,
+		Prompts:       template.Prompts,
+		Words:         make([]string, len(template.Prompts)),
+		playerPrompts: make(map[string]int),
 	}
 }
 
-func (m *MadLib) AddWord(word string) bool {
+// AddWordForPlayer adds a word from a specific player to the next available slot
+func (m *MadLib) AddWordForPlayer(playerID, word string) bool {
+	// Find the next empty slot in the Words array
 	for i, w := range m.Words {
 		if w == "" {
 			m.Words[i] = word
-			return i == len(m.Words)-1 // Return true if this was the last word
+			// Update this player's position to the next empty slot
+			m.updatePlayerPrompt(playerID)
+			// Return true if all words are now filled
+			return m.IsComplete()
 		}
 	}
 	return true
 }
 
+// AddWord is kept for backward compatibility with the GameType interface
+func (m *MadLib) AddWord(word string) bool {
+	return m.AddWordForPlayer("", word)
+}
+
+// GetPromptForPlayer returns the current prompt for a specific player
+func (m *MadLib) GetPromptForPlayer(playerID string) string {
+	// Get or initialize this player's current position
+	idx, exists := m.playerPrompts[playerID]
+	if !exists {
+		idx = m.findNextEmptySlot()
+		m.playerPrompts[playerID] = idx
+	}
+
+	if idx < len(m.Prompts) {
+		return m.Prompts[idx]
+	}
+	return ""
+}
+
+// findNextEmptySlot finds the next unfilled word slot
+func (m *MadLib) findNextEmptySlot() int {
+	for i, w := range m.Words {
+		if w == "" {
+			return i
+		}
+	}
+	return len(m.Words) // All filled
+}
+
+// updatePlayerPrompt moves player to the next empty slot
+func (m *MadLib) updatePlayerPrompt(playerID string) {
+	nextSlot := m.findNextEmptySlot()
+	m.playerPrompts[playerID] = nextSlot
+}
+
+// CurrentPrompt returns the next unfilled prompt (used for interface compatibility)
 func (m *MadLib) CurrentPrompt() string {
 	for i, w := range m.Words {
 		if w == "" {

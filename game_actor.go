@@ -214,7 +214,13 @@ func (ga *GameActor) handleSubmitWord(msg SubmitWordMsg) {
 	}
 
 	// Submit word/answer to current game
-	isComplete := ga.game.SubmitAnswer(msg.PlayerID, msg.Word)
+	var isComplete bool
+	// For Mad Libs, use the per-player method
+	if madlib, ok := ga.game.(*MadLib); ok {
+		isComplete = madlib.AddWordForPlayer(msg.PlayerID, msg.Word)
+	} else {
+		isComplete = ga.game.SubmitAnswer(msg.PlayerID, msg.Word)
+	}
 
 	// Award points based on game type
 	if msg.Word != "timer_complete" && msg.Word != "video_complete" {
@@ -567,6 +573,28 @@ func (ga *GameActor) broadcastState() {
 						playerStateData["game_instructions"] = "Enter your answer:"
 						playerStateData["round_instructions"] = ""
 						playerStateData["needs_input"] = true // Guesser needs to submit
+					}
+
+					playerStateMsg = map[string]interface{}{
+						"state": playerStateData,
+					}
+				}
+			} else if ga.state == "playing" && ga.currentGame == "madlibs" {
+				if madlib, ok := ga.game.(*MadLib); ok {
+					playerStateData := make(map[string]interface{})
+					for k, v := range stateData {
+						playerStateData[k] = v
+					}
+
+					// Each player gets their own personalized prompt
+					playerPrompt := madlib.GetPromptForPlayer(player.ID)
+					if playerPrompt != "" {
+						playerStateData["game_title"] = playerPrompt
+						playerStateData["current_prompt"] = playerPrompt
+					} else {
+						// Player has filled all their slots, show waiting message
+						playerStateData["game_title"] = "Waiting for other players..."
+						playerStateData["needs_input"] = false
 					}
 
 					playerStateMsg = map[string]interface{}{
