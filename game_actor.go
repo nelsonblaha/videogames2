@@ -591,9 +591,12 @@ func (ga *GameActor) broadcastState() {
 					if playerPrompt != "" {
 						playerStateData["game_title"] = playerPrompt
 						playerStateData["current_prompt"] = playerPrompt
+						playerStateData["needs_input"] = true
 					} else {
-						// Player has filled all their slots, show waiting message
-						playerStateData["game_title"] = "Waiting for other players..."
+						// No slots available - all slots are either claimed by others or filled
+						playerStateData["game_title"] = "Please wait..."
+						playerStateData["game_instructions"] = "All words are being filled by other players"
+						playerStateData["round_instructions"] = ""
 						playerStateData["needs_input"] = false
 					}
 

@@ -9,7 +9,8 @@ type MadLib struct {
 	Template      string
 	Prompts       []string
 	Words         []string
-	playerPrompts map[string]int // tracks which prompt index each player is currently on
+	claimedBy     []string          // tracks which player has claimed each slot ("" = unclaimed)
+	playerPrompts map[string]int    // tracks which prompt index each player is currently on
 }
 
 var madLibTemplates = []MadLib{
@@ -41,27 +42,37 @@ func init() {
 
 func NewMadLib() *MadLib {
 	template := madLibTemplates[rand.Intn(len(madLibTemplates))]
+	numPrompts := len(template.Prompts)
 	return &MadLib{
 		Template:      template.Template,
 		Prompts:       template.Prompts,
-		Words:         make([]string, len(template.Prompts)),
+		Words:         make([]string, numPrompts),
+		claimedBy:     make([]string, numPrompts), // all start as ""
 		playerPrompts: make(map[string]int),
 	}
 }
 
-// AddWordForPlayer adds a word from a specific player to the next available slot
+// AddWordForPlayer fills the slot claimed by this player
 func (m *MadLib) AddWordForPlayer(playerID, word string) bool {
-	// Find the next empty slot in the Words array
-	for i, w := range m.Words {
-		if w == "" {
-			m.Words[i] = word
-			// Update this player's position to the next empty slot
-			m.updatePlayerPrompt(playerID)
-			// Return true if all words are now filled
-			return m.IsComplete()
-		}
+	// Find the slot this player has claimed
+	idx, exists := m.playerPrompts[playerID]
+	if !exists {
+		return m.IsComplete()
 	}
-	return true
+
+	// Verify this slot is actually claimed by this player
+	if idx >= len(m.claimedBy) || m.claimedBy[idx] != playerID {
+		return m.IsComplete()
+	}
+
+	// Fill the slot
+	m.Words[idx] = word
+
+	// Clear this player's claim and prompt them for next slot
+	m.claimNextSlotForPlayer(playerID)
+
+	// Return true if all words are now filled
+	return m.IsComplete()
 }
 
 // AddWord is kept for backward compatibility with the GameType interface
@@ -70,21 +81,40 @@ func (m *MadLib) AddWord(word string) bool {
 }
 
 // GetPromptForPlayer returns the current prompt for a specific player
+// This also claims a slot if the player doesn't have one
 func (m *MadLib) GetPromptForPlayer(playerID string) string {
-	// Get or initialize this player's current position
+	// Check if player already has a claimed slot
 	idx, exists := m.playerPrompts[playerID]
 	if !exists {
-		idx = m.findNextEmptySlot()
-		m.playerPrompts[playerID] = idx
+		// Claim the next available slot for this player
+		idx = m.claimNextSlotForPlayer(playerID)
 	}
 
-	if idx < len(m.Prompts) {
+	// Return the prompt for their claimed slot, or empty if no slots available
+	if idx >= 0 && idx < len(m.Prompts) {
 		return m.Prompts[idx]
 	}
 	return ""
 }
 
-// findNextEmptySlot finds the next unfilled word slot
+// claimNextSlotForPlayer finds and claims the next unclaimed slot for a player
+// Returns the slot index, or -1 if no slots available
+func (m *MadLib) claimNextSlotForPlayer(playerID string) int {
+	// Find first unclaimed slot
+	for i, claimer := range m.claimedBy {
+		if claimer == "" {
+			// Claim this slot for the player
+			m.claimedBy[i] = playerID
+			m.playerPrompts[playerID] = i
+			return i
+		}
+	}
+	// No slots available - all are claimed or filled
+	m.playerPrompts[playerID] = -1
+	return -1
+}
+
+// findNextEmptySlot finds the next unfilled word slot (for backward compatibility)
 func (m *MadLib) findNextEmptySlot() int {
 	for i, w := range m.Words {
 		if w == "" {
@@ -94,10 +124,14 @@ func (m *MadLib) findNextEmptySlot() int {
 	return len(m.Words) // All filled
 }
 
-// updatePlayerPrompt moves player to the next empty slot
-func (m *MadLib) updatePlayerPrompt(playerID string) {
-	nextSlot := m.findNextEmptySlot()
-	m.playerPrompts[playerID] = nextSlot
+// HasAvailableSlots returns true if there are unclaimed slots
+func (m *MadLib) HasAvailableSlots() bool {
+	for _, claimer := range m.claimedBy {
+		if claimer == "" {
+			return true
+		}
+	}
+	return false
 }
 
 // CurrentPrompt returns the next unfilled prompt (used for interface compatibility)
