@@ -157,29 +157,8 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 				cg.numPlayers = len(ga.players)
 			}
 
-			// Set random actor for Imitations
-			if im, ok := ga.game.(*Imitations); ok && len(ga.players) > 0 {
-				// Pick random player as actor
-				playerIDs := make([]string, 0, len(ga.players))
-				for id := range ga.players {
-					playerIDs = append(playerIDs, id)
-				}
-				actorID := playerIDs[rand.Intn(len(playerIDs))]
-				im.SetActor(actorID)
-				log.Printf("Set %s as actor for Imitations in game %s", actorID, ga.id)
-			}
-
-			// Set random actor for Charades
-			if ch, ok := ga.game.(*Charades); ok && len(ga.players) > 0 {
-				// Pick random player as actor
-				playerIDs := make([]string, 0, len(ga.players))
-				for id := range ga.players {
-					playerIDs = append(playerIDs, id)
-				}
-				actorID := playerIDs[rand.Intn(len(playerIDs))]
-				ch.SetActor(actorID)
-				log.Printf("Set %s as actor for Charades in game %s", actorID, ga.id)
-			}
+			// Set random actor for games that need an actor
+			ga.assignRandomActor()
 
 			// Start timer for timed games when transitioning from instructions to playing
 			if ga.currentGame == "firsttofind" {
@@ -677,4 +656,32 @@ func countEmpty(words []string) int {
 		}
 	}
 	return count
+}
+
+// assignRandomActor picks a random player as the actor for games that need one (Imitations, Charades)
+func (ga *GameActor) assignRandomActor() {
+	if len(ga.players) == 0 {
+		return
+	}
+
+	// Build list of player IDs
+	playerIDs := make([]string, 0, len(ga.players))
+	for id := range ga.players {
+		playerIDs = append(playerIDs, id)
+	}
+	actorID := playerIDs[rand.Intn(len(playerIDs))]
+
+	// Assign actor based on game type
+	switch ga.currentGame {
+	case "imitations":
+		if im, ok := ga.game.(*Imitations); ok {
+			im.SetActor(actorID)
+			log.Printf("Set %s as actor for Imitations in game %s", actorID, ga.id)
+		}
+	case "charades":
+		if ch, ok := ga.game.(*Charades); ok {
+			ch.SetActor(actorID)
+			log.Printf("Set %s as actor for Charades in game %s", actorID, ga.id)
+		}
+	}
 }
