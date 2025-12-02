@@ -161,17 +161,7 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 			ga.assignRandomActor()
 
 			// Start timer for timed games when transitioning from instructions to playing
-			if ga.currentGame == "firsttofind" {
-				if ftf, ok := ga.game.(*FirstToFind); ok {
-					ftf.timerActive = true
-					log.Printf("Started timer for First to Find in game %s", ga.id)
-				}
-			} else if ga.currentGame == "blankestblank" {
-				if bb, ok := ga.game.(*BlankestBlank); ok {
-					bb.timerActive = true
-					log.Printf("Started timer for Blankest Blank in game %s", ga.id)
-				}
-			}
+			ga.activateTimerIfNeeded()
 
 			// Reset ready status
 			for _, p := range ga.players {
@@ -682,6 +672,22 @@ func (ga *GameActor) assignRandomActor() {
 		if ch, ok := ga.game.(*Charades); ok {
 			ch.SetActor(actorID)
 			log.Printf("Set %s as actor for Charades in game %s", actorID, ga.id)
+		}
+	}
+}
+
+// activateTimerIfNeeded starts the timer for timed games (FirstToFind, BlankestBlank)
+func (ga *GameActor) activateTimerIfNeeded() {
+	switch ga.currentGame {
+	case "firsttofind":
+		if ftf, ok := ga.game.(*FirstToFind); ok {
+			ftf.timerActive = true
+			log.Printf("Started timer for First to Find in game %s", ga.id)
+		}
+	case "blankestblank":
+		if bb, ok := ga.game.(*BlankestBlank); ok {
+			bb.timerActive = true
+			log.Printf("Started timer for Blankest Blank in game %s", ga.id)
 		}
 	}
 }
