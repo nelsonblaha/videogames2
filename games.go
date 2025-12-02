@@ -235,7 +235,7 @@ func NewFirstToFind() *FirstToFind {
 	return &FirstToFind{
 		item:          itemsToFind[rand.Intn(len(itemsToFind))],
 		timeRemaining: 30,
-		timerActive:   true,
+		timerActive:   false, // Timer starts when players click "Start"
 	}
 }
 
@@ -493,7 +493,7 @@ func NewBlankestBlank() *BlankestBlank {
 		adjective:     adjectives[rand.Intn(len(adjectives))],
 		noun:          nouns[rand.Intn(len(nouns))],
 		timeRemaining: 30,
-		timerActive:   true,
+		timerActive:   false, // Timer starts when players click "Start"
 	}
 }
 

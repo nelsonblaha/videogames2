@@ -181,6 +181,19 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 				log.Printf("Set %s as actor for Charades in game %s", actorID, ga.id)
 			}
 
+			// Start timer for timed games when transitioning from instructions to playing
+			if ga.currentGame == "firsttofind" {
+				if ftf, ok := ga.game.(*FirstToFind); ok {
+					ftf.timerActive = true
+					log.Printf("Started timer for First to Find in game %s", ga.id)
+				}
+			} else if ga.currentGame == "blankestblank" {
+				if bb, ok := ga.game.(*BlankestBlank); ok {
+					bb.timerActive = true
+					log.Printf("Started timer for Blankest Blank in game %s", ga.id)
+				}
+			}
+
 			// Reset ready status
 			for _, p := range ga.players {
 				p.Ready = false
