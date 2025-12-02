@@ -469,7 +469,12 @@ func (ga *GameActor) broadcastState() {
 			gameInstructions = ga.game.GetName() + " finished!"
 			if len(ga.winners) > 0 {
 				if len(ga.winners) == 1 {
-					roundInstructions = ga.winners[0] + " wins! " + ga.game.GetResult()
+					// For Mad Libs, don't include GetResult() here since it's shown separately via stateData["story"]
+					if ga.currentGame == "madlibs" {
+						roundInstructions = ga.winners[0] + " wins!"
+					} else {
+						roundInstructions = ga.winners[0] + " wins! " + ga.game.GetResult()
+					}
 				} else {
 					// Tie
 					winnersList := ""
@@ -479,10 +484,20 @@ func (ga *GameActor) broadcastState() {
 						}
 						winnersList += w
 					}
-					roundInstructions = "Tie! " + winnersList + " win! " + ga.game.GetResult()
+					// For Mad Libs, don't include GetResult() here since it's shown separately via stateData["story"]
+					if ga.currentGame == "madlibs" {
+						roundInstructions = "Tie! " + winnersList + " win!"
+					} else {
+						roundInstructions = "Tie! " + winnersList + " win! " + ga.game.GetResult()
+					}
 				}
 			} else {
-				roundInstructions = ga.game.GetResult()
+				// For Mad Libs, don't show story in roundInstructions - it's shown via stateData["story"]
+				if ga.currentGame == "madlibs" {
+					roundInstructions = ""
+				} else {
+					roundInstructions = ga.game.GetResult()
+				}
 			}
 		} else {
 			gameInstructions = "Click Next for another game"
