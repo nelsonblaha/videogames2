@@ -432,10 +432,10 @@ func (ga *GameActor) broadcastState() {
 		gameTitle = "Time to Vote!"
 		if ga.game != nil {
 			gameInstructions = ga.game.GetResult()
-			roundInstructions = "Vote for the winner!"
+			roundInstructions = "" // GetResult() already contains voting instructions
 		} else {
 			gameInstructions = "Who kept the straightest face?"
-			roundInstructions = "Vote for the person who didn't laugh!"
+			roundInstructions = ""
 		}
 
 	case "finished":
