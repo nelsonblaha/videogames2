@@ -43,6 +43,12 @@ type SubmitWordMsg struct {
 
 func (m SubmitWordMsg) ActorMessage() {}
 
+type RequestPromptMsg struct {
+	PlayerID string
+}
+
+func (m RequestPromptMsg) ActorMessage() {}
+
 type VoteMsg struct {
 	PlayerID     string
 	VotedForID   string

@@ -112,6 +112,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				gameActor.Send(PingMsg{PlayerID: playerID})
 			}
 
+		case "request-prompt":
+			if gameActor != nil {
+				gameActor.Send(RequestPromptMsg{PlayerID: playerID})
+			}
+
 		case "submit-word":
 			if gameActor != nil {
 				word, _ := data["word"].(string)

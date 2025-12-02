@@ -80,14 +80,12 @@ func (m *MadLib) AddWord(word string) bool {
 	return m.AddWordForPlayer("", word)
 }
 
-// GetPromptForPlayer returns the current prompt for a specific player
-// This also claims a slot if the player doesn't have one
+// GetPromptForPlayer returns the current prompt for a specific player (query only, no mutation)
 func (m *MadLib) GetPromptForPlayer(playerID string) string {
 	// Check if player already has a claimed slot
 	idx, exists := m.playerPrompts[playerID]
 	if !exists {
-		// Claim the next available slot for this player
-		idx = m.claimNextSlotForPlayer(playerID)
+		return "" // Player hasn't claimed a slot yet
 	}
 
 	// Return the prompt for their claimed slot, or empty if no slots available
@@ -95,6 +93,19 @@ func (m *MadLib) GetPromptForPlayer(playerID string) string {
 		return m.Prompts[idx]
 	}
 	return ""
+}
+
+// ClaimSlotForPlayer explicitly claims the next available slot for a player
+// This is a command (mutation) and should be called through the actor message handler
+func (m *MadLib) ClaimSlotForPlayer(playerID string) bool {
+	// Check if player already has a claimed slot
+	if _, exists := m.playerPrompts[playerID]; exists {
+		return true // Already has a slot
+	}
+
+	// Claim the next available slot
+	idx := m.claimNextSlotForPlayer(playerID)
+	return idx >= 0 // Returns true if slot was claimed, false if none available
 }
 
 // claimNextSlotForPlayer finds and claims the next unclaimed slot for a player

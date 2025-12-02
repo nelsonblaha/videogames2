@@ -71,6 +71,8 @@ func (ga *GameActor) handleMessage(msg ActorMessage) {
 		ga.handleNextGame(m)
 	case PingMsg:
 		ga.handlePing(m)
+	case RequestPromptMsg:
+		ga.handleRequestPrompt(m)
 	case SubmitWordMsg:
 		ga.handleSubmitWord(m)
 	case VoteMsg:
@@ -201,6 +203,23 @@ func (ga *GameActor) handleNextGame(msg NextGameMsg) {
 		for _, p := range ga.players {
 			p.Ready = false
 		}
+		ga.broadcastState()
+	}
+}
+
+func (ga *GameActor) handleRequestPrompt(msg RequestPromptMsg) {
+	ga.mu.Lock()
+	defer ga.mu.Unlock()
+
+	// Only handle for Mad Libs during playing state
+	if ga.state != "playing" || ga.currentGame != "madlibs" || ga.game == nil {
+		return
+	}
+
+	// Claim a slot for this player
+	if madlib, ok := ga.game.(*MadLib); ok {
+		madlib.ClaimSlotForPlayer(msg.PlayerID)
+		// Broadcast state so player gets their personalized prompt
 		ga.broadcastState()
 	}
 }

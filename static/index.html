@@ -471,6 +471,13 @@
                 timerArea.classList.add('hidden');
                 nextButton.classList.add('hidden');
 
+                // For Mad Libs, request a prompt slot when entering playing state
+                if (state.game_type === 'madlibs' && !state.current_prompt) {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({action: 'request-prompt'}));
+                    }
+                }
+
                 // Handle timer for timed games
                 if (state.has_timer && state.time_remaining !== undefined) {
                     timerArea.classList.remove('hidden');
