@@ -341,7 +341,9 @@
                     data: { player_id: votedForID }
                 }));
                 document.getElementById('vote-status').textContent = 'Vote submitted!';
-                voteSelect.disabled = true;
+                // Change placeholder to indicate vote can be changed
+                voteSelect.options[0].textContent = '-- Change Vote --';
+                voteSelect.disabled = false; // Re-enable so they can change their vote
             }
         }
 
